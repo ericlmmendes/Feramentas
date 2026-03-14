@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="pt-br">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema Profissional de Contagem de Sacas</title>
+    <link rel="shortcut icon" href="./img/CDC-ESTOQUE.png">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+    <!-- Estilos melhorados (CSS) -->
+    <style>
+      :root {
+        --primary-color: #1d4ed8;
+        --primary-hover: #2563eb;
+        --danger-color: #ef4444;
+        --danger-hover: #dc2626;
+        --bg-color: #f3f4f6;
+        --card-bg: #ffffff;
+        --text-dark: #1f2937;
+        --text-muted: #6b7280;
+        --border-color: #e5e7eb;
+      }
+
+      * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
+      body { background: var(--bg-color); color: var(--text-dark); padding: 20px; }
+      
+      .container { max-width: 1200px; margin: auto; }
+      
+      /* Cabeçalho */
+      header { 
+        background: var(--card-bg); 
+        color: var(--primary-color); 
+        padding: 20px 30px; 
+        border-radius: 12px; 
+        margin-bottom: 20px; 
+        text-align: center; 
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); 
+        border-top: 5px solid var(--primary-color);
+      }
+      header h1 { font-size: 26px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 10px; }
+
+      /* Sistema de Abas */
+      .tabs {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+        border-bottom: 2px solid var(--border-color);
+        padding-bottom: 5px;
+      }
+      .tab-btn {
+        background: transparent;
+        color: var(--text-muted);
+        border: none;
+        padding: 12px 24px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        border-radius: 8px 8px 0 0;
+        transition: all 0.3s ease;
+      }
+      .tab-btn:hover { color: var(--primary-color); background: #e0e7ff; }
+      .tab-btn.active {
+        color: var(--primary-color);
+        border-bottom: 3px solid var(--primary-color);
+        background: #e0e7ff;
+      }
+      .tab-content { display: none; animation: fadeIn 0.4s ease; }
+      .tab-content.active { display: block; }
+
+      @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+      /* Bipagem */
+      .scanner-box { 
+        background: var(--card-bg); 
+        padding: 30px; 
+        border-radius: 12px; 
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); 
+        margin-bottom: 20px; 
+        text-align: center;
+      }
+      .scanner-box h2 { color: var(--text-dark); margin-bottom: 15px; }
+      #scanner { 
+        width: 100%; 
+        max-width: 600px;
+        padding: 18px; 
+        font-size: 20px; 
+        border-radius: 8px; 
+        border: 2px solid var(--border-color); 
+        outline: none;
+        transition: border-color 0.3s, box-shadow 0.3s;
+        text-align: center;
+      }
+      #scanner:focus { border-color: var(--primary-color); box-shadow: 0 0 0 4px rgba(29, 78, 216, 0.2); }
+
+      /* Relatório e Tabela */
+      .relatorio { background: var(--card-bg); padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+      .relatorio h2 { margin-bottom: 20px; color: var(--text-dark); border-bottom: 1px solid var(--border-color); padding-bottom: 10px; }
+      
+      table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+      th { background: #f8fafc; color: var(--text-muted); padding: 15px; font-weight: 600; text-transform: uppercase; font-size: 14px; border-bottom: 2px solid var(--border-color); text-align: center; }
+      td { padding: 15px; border-bottom: 1px solid var(--border-color); text-align: center; color: var(--text-dark); }
+      tr:hover td { background-color: #f1f5f9; }
+      
+      /* Cards das Etiquetas */
+      .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+      .card { 
+        background: var(--card-bg); 
+        padding: 30px 20px; 
+        border-radius: 12px; 
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); 
+        text-align: center; 
+        transition: transform 0.2s, box-shadow 0.2s; 
+        border: 1px solid var(--border-color);
+      }
+      .card:hover { transform: translateY(-5px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); border-color: #bfdbfe; }
+      .card h3 { font-size: 20px; color: var(--text-dark); margin-bottom: 5px; }
+      .card p { font-size: 16px; color: var(--text-muted); margin-bottom: 20px; font-weight: 500; }
+      
+      /* Centraliza o QR Code gerado pelo script */
+      .card div { display: flex; justify-content: center; margin-bottom: 20px; } 
+
+      /* Botões */
+      button { background: var(--primary-color); color: #fff; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 15px; transition: 0.2s; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+      button:hover { background: var(--primary-hover); }
+      .btn-danger { background: var(--danger-color); }
+      .btn-danger:hover { background: var(--danger-hover); }
+      
+      .acoes-relatorio { margin-top: 30px; display: flex; justify-content: center; gap: 15px; }
+      .linha-assinatura { margin-top: 50px; font-size: 16px; color: var(--text-dark); text-align: center; }
+
+      /* Impressão */
+      @media print {
+        header, .tabs, .scanner-box, .acoes-relatorio { display: none !important; }
+        body { background: #fff; padding: 0; }
+        .relatorio { box-shadow: none; border: none; padding: 0; }
+        table { border: 1px solid #000; }
+        th, td { border: 1px solid #000; padding: 8px; }
+      }
+    </style>
+
+    <!-- Importa o Firebase e o módulo bd.js -->
+    <script type="module">
+      import { database, ref, push, update, onValue, remove, set, get } from './bd.js';
+
+      // --- LÓGICA DE ABAS (Adicionado) ---
+      window.abrirAba = function(nomeAba) {
+        document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        
+        document.getElementById(nomeAba).classList.add('active');
+        event.currentTarget.classList.add('active');
+
+        // Se abrir a aba de bipagem, foca no input automaticamente
+        if(nomeAba === 'aba-bipagem') {
+          document.getElementById('scanner').focus();
+        }
+      }
+
+      // Variáveis globais
+      const tabela = document.getElementById("tabela");
+      const inputScanner = document.getElementById("scanner");
+
+      // Referência ao nó de contagens no Firebase
+      const contagensRef = ref(database, 'contagens');
+
+      // Função que atualiza a tabela com os dados do Firebase
+      function atualizarTabela(snapshot) {
+        tabela.innerHTML = ""; // limpa antes de reconstruir
+
+        if (!snapshot.exists()) {
+          tabela.innerHTML = '<tr><td colspan="5" style="padding: 30px; color: #6b7280;">Nenhuma contagem registrada no momento.</td></tr>';
+          return;
+        }
+
+        const dados = snapshot.val();
+        Object.entries(dados).forEach(([id, item]) => {
+          const linha = document.createElement("tr");
+          linha.innerHTML = `
+            <td><strong>${item.tipo || "?"}</strong></td>
+            <td>${item.unidades || "?"}</td>
+            <td>${item.data || "-"}</td>
+            <td>${item.hora || "-"}</td>
+            <td><span style="color: #10b981; font-weight: bold;">✔ Enviado</span></td>
+          `;
+          tabela.appendChild(linha);
+        });
+      }
+
+      // Escuta todas as mudanças no nó /contagens em tempo real
+      onValue(contagensRef, (snapshot) => {
+        atualizarTabela(snapshot);
+      });
+
+      // Quando pressionar Enter no campo de scanner
+      inputScanner.addEventListener("keypress", async function (e) {
+        if (e.key === "Enter") {
+          const codigo = this.value.trim();
+          if (!codigo) return;
+
+          const agora = new Date();
+          const data = agora.toLocaleDateString("pt-BR");
+          const hora = agora.toLocaleTimeString("pt-BR");
+
+          const partes = codigo.split("-");
+          const tipo = partes[0] || "DESCONHECIDO";
+          const unidades = partes[1] || "?";
+
+          // Salva no Firebase
+          try {
+            await push(contagensRef, {
+              tipo,
+              unidades,
+              data,
+              hora,
+              timestamp: agora.getTime(),
+              codigoOriginal: codigo
+            });
+            // Sucesso → limpa o input
+            this.value = "";
+          } catch (error) {
+            console.error("Erro ao salvar no Firebase:", error);
+            alert("Erro ao registrar a contagem. Verifique o console.");
+          }
+        }
+      });
+
+      // Limpar relatório (apaga tudo do nó contagens)
+      window.limparRelatorio = async function () {
+        if (!confirm("⚠️ ATENÇÃO: Deseja realmente LIMPAR TODO o relatório? Essa ação não pode ser desfeita.")) return;
+
+        try {
+          await set(contagensRef, null);
+          alert("Relatório limpo com sucesso!");
+        } catch (error) {
+          console.error("Erro ao limpar:", error);
+          alert("Erro ao limpar relatório.");
+        }
+      };
+
+      // --- AS FUNÇÕES ORIGINAIS DE QR E IMPRESSÃO FORAM MANTIDAS INTACTAS ---
+      function gerarQR() {
+        new QRCode(document.getElementById("qr_branca"), "BRANCA-280");
+        new QRCode(document.getElementById("qr_amarela"), "AMARELA-280");
+        new QRCode(document.getElementById("qr_azul"), "AZUL-280");
+        new QRCode(document.getElementById("qr_fm"), "FM-600");
+        new QRCode(document.getElementById("qr_pa"), "PA-450");
+        new QRCode(document.getElementById("qr_cdgu"), "CDGU-450");
+      }
+      
+      // Pequeno delay para garantir que as divs foram carregadas antes de gerar o QR
+      setTimeout(gerarQR, 100);
+
+      window.imprimirEtiqueta = function(tipo, unidades) {
+        let janela = window.open("", "", "width=1000,height=1000");
+        janela.document.write(`
+<style>
+  body {
+    font-family: Arial;
+    text-align: center;
+    padding-top: 40px;
+  }
+  h1 { font-size: 40px; margin-bottom: 10px; }
+  p  { font-size: 24px; margin-bottom: 30px; }
+  #qr { display: flex; justify-content: center; }
+</style>
+
+<h1>${tipo}</h1>
+<p>${unidades} unidades</p>
+<div id="qr"></div>
+        `);
+
+        setTimeout(() => {
+          new QRCode(janela.document.getElementById("qr"), tipo + "-" + unidades, {
+            width: 60,
+            height: 60
+          });
+        }, 200);
+
+        setTimeout(() => {
+          janela.print();
+        }, 500);
+      };
+
+      window.gerarRelatorio = function() {
+        let agora = new Date();
+        document.getElementById("rodape").innerHTML = `
+<div class="linha-assinatura">
+  Assinatura do responsável: __________________________________ 
+  <br><br>
+  Data e hora de emissão: ${agora.toLocaleDateString()} às ${agora.toLocaleTimeString()}
+</div>`;
+        window.print();
+      };
+    </script>
+  </head>
+
+  <body>
+    <div class="container">
+      <header>
+        <h1>📦 Gestão de Estoque - Contagem de Sacas</h1>
+      </header>
+
+      <!-- Navegação das Abas -->
+      <div class="tabs">
+        <!-- O botão "Bipagem" já vem com a classe 'active' para ser o primeiro -->
+        <button class="tab-btn active" onclick="abrirAba('aba-bipagem')">📡 Bipagem e Relatório</button>
+        <button class="tab-btn" onclick="abrirAba('aba-etiquetas')">🏷️ Etiquetas de Gaiola</button>
+      </div>
+
+      <!-- ABA 1: BIPAGEM E RELATÓRIO (Aba padrão) -->
+      <div id="aba-bipagem" class="tab-content active">
+        <div class="scanner-box">
+          <h2>Bipagem pelo Coletor</h2>
+          <p style="color: #6b7280; margin-bottom: 15px;">Posicione o cursor no campo abaixo e utilize o leitor de código de barras.</p>
+          <input id="scanner" placeholder="Bipe o código aqui..." autofocus autocomplete="off" />
+        </div>
+
+        <div class="relatorio">
+          <h2>📊 Relatório de Contagem</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Tipo</th>
+                <th>Unidades</th>
+                <th>Data</th>
+                <th>Hora</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="tabela">
+              <tr><td colspan="5">Carregando dados...</td></tr>
+            </tbody>
+          </table>
+
+          <div class="acoes-relatorio">
+            <button onclick="gerarRelatorio()">🖨️ Imprimir Relatório</button>
+            <button class="btn-danger" onclick="limparRelatorio()">🗑️ Limpar Relatório</button>
+          </div>
+
+          <div id="rodape"></div>
+        </div>
+      </div>
+
+      <!-- ABA 2: ETIQUETAS -->
+      <div id="aba-etiquetas" class="tab-content">
+        <div class="cards">
+          <div class="card">
+            <h3>Gaiola de Saca Branca</h3>
+            <p>280 unidades</p>
+            <div id="qr_branca"></div>
+            <button onclick="imprimirEtiqueta('Gaiola de Saca Branca', 280)">🖨️ Imprimir Etiqueta</button>
+          </div>
+
+          <div class="card">
+            <h3>Gaiola de Saca Amarela</h3>
+            <p>280 unidades</p>
+            <div id="qr_amarela"></div>
+            <button onclick="imprimirEtiqueta('Gaiola de Saca Amarela', 280)">🖨️ Imprimir Etiqueta</button>
+          </div>
+
+          <div class="card">
+            <h3>Gaiola de Saca Azul</h3>
+            <p>280 unidades</p>
+            <div id="qr_azul"></div>
+            <button onclick="imprimirEtiqueta('Gaiola de Saca Azul', 280)">🖨️ Imprimir Etiqueta</button>
+          </div>
+
+          <div class="card">
+            <h3>FM</h3>
+            <p>600 unidades</p>
+            <div id="qr_fm"></div>
+            <button onclick="imprimirEtiqueta('FM', 600)">🖨️ Imprimir Etiqueta</button>
+          </div>
+
+          <div class="card">
+            <h3>PA</h3>
+            <p>450 unidades</p>
+            <div id="qr_pa"></div>
+            <button onclick="imprimirEtiqueta('PA', 450)">🖨️ Imprimir Etiqueta</button>
+          </div>
+
+          <div class="card">
+            <h3>CDGU</h3>
+            <p>450 unidades</p>
+            <div id="qr_cdgu"></div>
+            <button onclick="imprimirEtiqueta('CDGU', 450)">🖨️ Imprimir Etiqueta</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </body>
+</html>
+
+

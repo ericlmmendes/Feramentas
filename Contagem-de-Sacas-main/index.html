@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="pt-br">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Sistema Profissional de Contagem de Sacas</title>
+    <link rel="shortcut icon" href="./img/CDC-ESTOQUE.png">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+    <!-- Importa o Firebase e o módulo bd.js -->
+    <script type="module">
+      import { database, ref, push, update, onValue, remove, set, get } from './bd.js';
+
+      // Variáveis globais
+      const tabela = document.getElementById("tabela");
+      const inputScanner = document.getElementById("scanner");
+
+      // Referência ao nó de contagens no Firebase
+      const contagensRef = ref(database, 'contagens');
+
+      // Função que atualiza a tabela com os dados do Firebase
+      function atualizarTabela(snapshot) {
+        tabela.innerHTML = ""; // limpa antes de reconstruir
+
+        if (!snapshot.exists()) {
+          tabela.innerHTML = '<tr><td colspan="5">Nenhuma contagem registrada ainda.</td></tr>';
+          return;
+        }
+
+        const dados = snapshot.val();
+        Object.entries(dados).forEach(([id, item]) => {
+          const linha = document.createElement("tr");
+          linha.innerHTML = `
+            <td>${item.tipo || "?"}</td>
+            <td>${item.unidades || "?"}</td>
+            <td>${item.data || "-"}</td>
+            <td>${item.hora || "-"}</td>
+            <td>Enviado</td>
+          `;
+          tabela.appendChild(linha);
+        });
+      }
+
+      // Escuta todas as mudanças no nó /contagens em tempo real
+      onValue(contagensRef, (snapshot) => {
+        atualizarTabela(snapshot);
+      });
+
+      // Quando pressionar Enter no campo de scanner
+      inputScanner.addEventListener("keypress", async function (e) {
+        if (e.key === "Enter") {
+          const codigo = this.value.trim();
+          if (!codigo) return;
+
+          const agora = new Date();
+          const data = agora.toLocaleDateString("pt-BR");
+          const hora = agora.toLocaleTimeString("pt-BR");
+
+          const partes = codigo.split("-");
+          const tipo = partes[0] || "DESCONHECIDO";
+          const unidades = partes[1] || "?";
+
+          // Salva no Firebase
+          try {
+            await push(contagensRef, {
+              tipo,
+              unidades,
+              data,
+              hora,
+              timestamp: agora.getTime(),        // útil para ordenar se precisar
+              codigoOriginal: codigo
+            });
+            // Sucesso → limpa o input
+            this.value = "";
+          } catch (error) {
+            console.error("Erro ao salvar no Firebase:", error);
+            alert("Erro ao registrar a contagem. Verifique o console.");
+          }
+        }
+      });
+
+      // Limpar relatório (apaga tudo do nó contagens)
+      window.limparRelatorio = async function () {
+        if (!confirm("Deseja realmente LIMPAR TODO o relatório?")) return;
+
+        try {
+          await set(contagensRef, null);
+          alert("Relatório limpo com sucesso!");
+        } catch (error) {
+          console.error("Erro ao limpar:", error);
+          alert("Erro ao limpar relatório.");
+        }
+      };
+
+      // As funções abaixo permanecem exatamente iguais
+      function gerarQR() {
+        new QRCode(document.getElementById("qr_branca"), "BRANCA-280");
+        new QRCode(document.getElementById("qr_amarela"), "AMARELA-280");
+        new QRCode(document.getElementById("qr_azul"), "AZUL-280");
+        new QRCode(document.getElementById("qr_fm"), "FM-600");
+        new QRCode(document.getElementById("qr_pa"), "PA-450");
+        new QRCode(document.getElementById("qr_cdgu"), "CDGU-450");
+      }
+      gerarQR();
+
+      window.imprimirEtiqueta = function(tipo, unidades) {
+        let janela = window.open("", "", "width=1000,height=1000");
+        janela.document.write(`
+<style>
+  body {
+    font-family:Arial;
+    text-align:center;
+    padding-top:40px;
+  }
+  h1 { font-size:40px; margin-bottom:10px; }
+  p  { font-size:24px; margin-bottom:30px; }
+  #qr { display:flex; justify-content:center; }
+</style>
+
+<h1>${tipo}</h1>
+<p>${unidades} unidades</p>
+<div id="qr"></div>
+        `);
+
+        setTimeout(() => {
+          new QRCode(janela.document.getElementById("qr"), tipo + "-" + unidades, {
+            width: 60,
+            height: 60
+          });
+        }, 200);
+
+        setTimeout(() => {
+          janela.print();
+        }, 500);
+      };
+
+      window.gerarRelatorio = function() {
+        let agora = new Date();
+        document.getElementById("rodape").innerHTML = `
+<div class="linha-assinatura">
+  Assinatura do responsável: __________________________________ 
+  <br><br>
+  Data e hora: ${agora.toLocaleDateString()} às ${agora.toLocaleTimeString()}
+</div>`;
+        window.print();
+      };
+    </script>
+
+    <style>
+      /* CSS */
+      * { margin:0; padding:0; box-sizing:border-box; font-family: "Segoe UI", Arial, sans-serif; }
+      body { background:#f4f6f8; padding:30px; color:#333; }
+      header { background:#1d4ed8; color:#fff; padding:20px 30px; border-radius:10px; margin-bottom:30px; text-align:center; box-shadow:0 4px 15px rgba(0,0,0,0.1); }
+      header h1 { font-size:28px; font-weight:600; }
+      .container { max-width:1200px; margin:auto; }
+      .cards { display:grid; grid-template-columns:repeat(auto-fit, minmax(280px,1fr)); gap:25px; margin-bottom:30px; }
+      .card { background:#fff; padding:25px 20px; border-radius:12px; box-shadow:0 6px 20px rgba(0,0,0,0.08); text-align:center; transition: transform 0.3s, box-shadow 0.3s; }
+      .card:hover { transform:translateY(-4px); box-shadow:0 8px 25px rgba(0,0,0,0.15); }
+      .card h3 { margin-bottom:10px; font-size:22px; color:#0d1b2a; }
+      .card p { font-size:18px; font-weight:600; color:#1f2937; margin-bottom:15px; }
+      button { background:#1d4ed8; color:#fff; border:none; padding:12px 20px; border-radius:8px; cursor:pointer; font-weight:bold; transition:0.3s; }
+      button:hover { background:#2563eb; }
+      .scanner-box { background:#fff; padding:25px 20px; border-radius:12px; box-shadow:0 6px 20px rgba(0,0,0,0.08); margin-bottom:30px; }
+      #scanner { width:100%; padding:14px; font-size:18px; border-radius:6px; border:1px solid #ccc; margin-top:12px; }
+      .relatorio { background:#fff; padding:25px 20px; border-radius:12px; box-shadow:0 6px 20px rgba(0,0,0,0.08); }
+      table { width:100%; border-collapse:collapse; margin-top:15px; }
+      th { background:#1d4ed8; color:white; padding:12px; font-weight:600; }
+      td { padding:12px; border-bottom:1px solid #e0e0e0; text-align:center; }
+      .assinatura { margin-top:35px; text-align:center; }
+      .linha-assinatura { margin-top:50px; font-size:16px; color:#1f2937; }
+      .footer { margin-top:20px; font-size:14px; color:#555; text-align:center; }
+      @media print {
+        header, .scanner-box, .cards, .assinatura button { display:none; }
+        body { background:#fff; }
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="container">
+      <header>
+        <h1>📦 Sistema Profissional de Contagem de Sacas</h1>
+      </header>
+
+      <div class="cards">
+        <div class="card">
+          <h3>Gaiola de Saca Branca</h3>
+          <p>280 unidades</p>
+          <div id="qr_branca"></div>
+          <br />
+          <button onclick="imprimirEtiqueta('Gaiola de Saca Branca', 280)">Imprimir Etiqueta</button>
+        </div>
+
+        <div class="card">
+          <h3>Gaiola de Saca Amarela</h3>
+          <p>280 unidades</p>
+          <div id="qr_amarela"></div>
+          <br />
+          <button onclick="imprimirEtiqueta('Gaiola de Saca Amarela', 280)">Imprimir Etiqueta</button>
+        </div>
+
+        <div class="card">
+          <h3>Gaiola de Saca Azul</h3>
+          <p>280 unidades</p>
+          <div id="qr_azul"></div>
+          <br />
+          <button onclick="imprimirEtiqueta('Gaiola de Saca Azul', 280)">Imprimir Etiqueta</button>
+        </div>
+
+        <div class="card">
+          <h3>FM</h3>
+          <p>600 unidades</p>
+          <div id="qr_fm"></div>
+          <br />
+          <button onclick="imprimirEtiqueta('FM', 600)">Imprimir Etiqueta</button>
+        </div>
+
+        <div class="card">
+          <h3>PA</h3>
+          <p>450 unidades</p>
+          <div id="qr_pa"></div>
+          <br />
+          <button onclick="imprimirEtiqueta('PA', 450)">Imprimir Etiqueta</button>
+        </div>
+
+        <div class="card">
+          <h3>CDGU</h3>
+          <p>450 unidades</p>
+          <div id="qr_cdgu"></div>
+          <br />
+          <button onclick="imprimirEtiqueta('CDGU', 450)">Imprimir Etiqueta</button>
+        </div>
+      </div>
+
+      <div class="scanner-box">
+        <h2>📡 Bipagem pelo Coletor</h2>
+        <input id="scanner" placeholder="Bipe o código aqui" autofocus />
+      </div>
+
+      <div class="relatorio">
+        <h2>📊 Relatório de Contagem</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Tipo</th>
+              <th>Unidades</th>
+              <th>Data</th>
+              <th>Hora</th>
+              <th>Ação</th>
+            </tr>
+          </thead>
+          <tbody id="tabela">
+            <tr><td colspan="5">Carregando dados...</td></tr>
+          </tbody>
+        </table>
+
+        <div class="assinatura">
+          <br /><br />
+          <button onclick="gerarRelatorio()">Gerar Relatório / Imprimir</button>
+          <button onclick="limparRelatorio()" style="background:#ef4444; margin-left:10px">
+            Limpar Relatório
+          </button>
+        </div>
+
+        <div id="rodape"></div>
+      </div>
+    </div>
+  </body>
+</html>
