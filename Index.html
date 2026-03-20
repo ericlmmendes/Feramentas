@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AcadeFit Pro • Academia</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="manifest" href="data:application/manifest+json;base64,ewogICJuYW1lIjogIkFjYWRlRml0IFBybyIsCiAgInNob3J0X25hbWUiOiAiQWNhZGVGaXQiLAogICJzdGFydF91cmwiOiAiLiIsCiAgImRpc3BsYXkiOiAic3RhbmRhbG9uZSIsCiAgImJhY2tncm91bmRfY29sb3IiOiAiIzBBMEEwQSIsCiAgInRoZW1lX2NvbG9yIjogIiMyMkM1NUUiLAogICJpY29ucyI6IFt7InNyYyI6ICJodHRwczovL3BpY3N1bS5waG90b3MvMTkyIiwic2l6ZXMiOiAiMTkyeDE5MiIsInR5cGUiOiAiaW1hZ2UvcG5nIn1dCn0=">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+    body { font-family: 'Inter', sans-serif; background: #0a0a0a; color: #f4f4f5; }
+    .card-hover:hover { transform: translateY(-6px); box-shadow: 0 15px 30px rgba(0,0,0,0.4); }
+    .nav-icon { width: 28px; height: 28px; stroke-width: 2.2; }
+    .nav-active { color: #10b981; transform: scale(1.12); }
+    .timer { font-size: 3.5rem; font-weight: 700; letter-spacing: 2px; }
+    iframe { border-radius: 16px; overflow: hidden; }
+  </style>
+</head>
+<body class="min-h-screen">
+
+  <!-- MODAL LOGIN -->
+  <div id="login-modal" class="fixed inset-0 bg-black/95 flex items-center justify-center z-50">
+    <div class="bg-zinc-900 p-8 rounded-3xl w-full max-w-sm border border-zinc-800">
+      <h2 class="text-3xl font-bold text-center mb-6 text-emerald-400">AcadeFit Pro</h2>
+      <input id="input-nome" type="text" placeholder="Seu nome" class="w-full p-4 mb-4 bg-zinc-800 rounded-xl border border-zinc-700 focus:outline-none focus:border-emerald-500" />
+      <input id="input-email" type="email" placeholder="Seu email" class="w-full p-4 mb-6 bg-zinc-800 rounded-xl border border-zinc-700 focus:outline-none focus:border-emerald-500" />
+      <button onclick="realizarLogin()" class="w-full bg-emerald-600 hover:bg-emerald-500 py-4 rounded-2xl font-bold text-lg transition">Entrar</button>
+      <p class="text-center text-sm text-zinc-500 mt-4">Seus dados ficam apenas no seu dispositivo</p>
+    </div>
+  </div>
+
+  <!-- NAVEGAÇÃO INFERIOR -->
+  <nav id="nav-principal" class="fixed bottom-0 left-0 right-0 bg-zinc-900/95 backdrop-blur-md border-t border-zinc-800 z-40 hidden">
+    <div class="max-w-md mx-auto flex justify-around py-3">
+      <button onclick="mostrarPagina('home')" class="nav-btn flex flex-col items-center text-zinc-400 hover:text-emerald-400 transition">
+        <i data-lucide="home" class="nav-icon"></i>
+        <span class="text-xs mt-1">Home</span>
+      </button>
+      <button onclick="mostrarPagina('treinos')" class="nav-btn flex flex-col items-center text-zinc-400 hover:text-emerald-400 transition">
+        <i data-lucide="dumbbell" class="nav-icon"></i>
+        <span class="text-xs mt-1">Treinos</span>
+      </button>
+      <button onclick="mostrarPagina('medidas')" class="nav-btn flex flex-col items-center text-zinc-400 hover:text-emerald-400 transition">
+        <i data-lucide="ruler" class="nav-icon"></i>
+        <span class="text-xs mt-1">Medidas</span>
+      </button>
+      <button onclick="mostrarPagina('progresso')" class="nav-btn flex flex-col items-center text-zinc-400 hover:text-emerald-400 transition">
+        <i data-lucide="line-chart" class="nav-icon"></i>
+        <span class="text-xs mt-1">Progresso</span>
+      </button>
+      <button onclick="mostrarPagina('perfil')" class="nav-btn flex flex-col items-center text-zinc-400 hover:text-emerald-400 transition">
+        <i data-lucide="user" class="nav-icon"></i>
+        <span class="text-xs mt-1">Perfil</span>
+      </button>
+    </div>
+  </nav>
+
+  <main class="max-w-md mx-auto pb-28 pt-6 px-4">
+
+    <!-- HOME -->
+    <div id="pagina-home" class="hidden">
+      <h1 class="text-4xl font-bold text-emerald-400 mb-2">Olá, <span id="nome-usuario"></span>!</h1>
+      <p class="text-zinc-400 mb-8">Pronto para treinar?</p>
+
+      <div class="space-y-4">
+        <button onclick="iniciarTreinoPorIndice(0)" class="w-full bg-zinc-800 hover:bg-zinc-700 p-5 rounded-2xl font-semibold text-left transition">
+          Full Body Iniciante • 45 min
+        </button>
+        <button onclick="iniciarTreinoPorIndice(1)" class="w-full bg-zinc-800 hover:bg-zinc-700 p-5 rounded-2xl font-semibold text-left transition">
+          Push / Pull / Legs Avançado • 70 min
+        </button>
+        <button onclick="iniciarTreinoPorIndice(2)" class="w-full bg-zinc-800 hover:bg-zinc-700 p-5 rounded-2xl font-semibold text-left transition">
+          Hipertrofia Total • 60 min
+        </button>
+      </div>
+    </div>
+
+    <!-- TREINOS -->
+    <div id="pagina-treinos" class="hidden">
+      <h2 class="text-3xl font-bold mb-6">Treinos Disponíveis</h2>
+      <div class="flex gap-3 mb-6">
+        <button onclick="filtrarNivel(0)" id="aba-iniciante" class="flex-1 py-3 bg-emerald-600 rounded-2xl font-semibold">Iniciante</button>
+        <button onclick="filtrarNivel(1)" id="aba-avancado" class="flex-1 py-3 bg-zinc-800 rounded-2xl font-semibold">Avançado</button>
+      </div>
+      <div id="lista-treinos" class="space-y-6"></div>
+    </div>
+
+    <!-- MEDIDAS -->
+    <div id="pagina-medidas" class="hidden">
+      <h2 class="text-3xl font-bold mb-6">Medidas Corporais</h2>
+      <div class="bg-zinc-900 rounded-3xl p-6 mb-6">
+        <input id="input-peso" type="number" placeholder="Peso (kg)" step="0.1" class="w-full p-4 mb-4 bg-zinc-800 rounded-xl border border-zinc-700" />
+        <input id="input-braco" type="number" placeholder="Braço (cm)" step="0.1" class="w-full p-4 mb-4 bg-zinc-800 rounded-xl border border-zinc-700" />
+        <input id="input-peito" type="number" placeholder="Peito (cm)" step="0.1" class="w-full p-4 mb-4 bg-zinc-800 rounded-xl border border-zinc-700" />
+        <button onclick="salvarMedida()" class="w-full bg-emerald-600 hover:bg-emerald-500 py-4 rounded-2xl font-bold transition">Registrar Hoje</button>
+      </div>
+      <div class="bg-zinc-900 rounded-3xl p-6">
+        <canvas id="grafico-medidas" class="w-full h-64"></canvas>
+      </div>
+    </div>
+
+    <!-- PROGRESSO -->
+    <div id="pagina-progresso" class="hidden">
+      <h2 class="text-3xl font-bold mb-6">Seu Progresso</h2>
+      <div class="bg-zinc-900 rounded-3xl p-6 mb-6">
+        <canvas id="grafico-progresso" class="w-full h-64"></canvas>
+      </div>
+      <div class="grid grid-cols-2 gap-4 mb-8">
+        <div class="bg-zinc-900 rounded-3xl p-6 text-center">
+          <p id="contagem-treinos" class="text-4xl font-bold text-emerald-400">0</p>
+          <p class="text-sm text-zinc-400">Treinos</p>
+        </div>
+        <div class="bg-zinc-900 rounded-3xl p-6 text-center">
+          <p id="volume-total" class="text-4xl font-bold text-emerald-400">0 kg</p>
+          <p class="text-sm text-zinc-400">Volume</p>
+        </div>
+      </div>
+      <button onclick="exportarDados('json')" class="w-full bg-blue-600 hover:bg-blue-500 py-4 rounded-2xl font-bold mb-3 transition">Baixar JSON</button>
+      <button onclick="exportarDados('csv')" class="w-full bg-green-600 hover:bg-green-500 py-4 rounded-2xl font-bold transition">Baixar CSV</button>
+    </div>
+
+    <!-- PERFIL -->
+    <div id="pagina-perfil" class="hidden">
+      <div class="text-center py-8">
+        <div class="w-28 h-28 mx-auto bg-zinc-800 rounded-full flex items-center justify-center mb-4">
+          <i data-lucide="user" class="w-14 h-14 text-emerald-400"></i>
+        </div>
+        <h2 id="nome-perfil" class="text-2xl font-bold mb-2"></h2>
+        <p id="email-perfil" class="text-zinc-400 mb-10"></p>
+        <button onclick="sair()" class="w-full bg-red-600 hover:bg-red-700 py-4 rounded-2xl font-bold transition">Sair</button>
+      </div>
+    </div>
+  </main>
+
+  <!-- MODAL TREINO ATIVO -->
+  <div id="modal-treino" class="hidden fixed inset-0 bg-black/90 flex flex-col z-50">
+    <div class="bg-zinc-900 flex-1 overflow-y-auto p-6 pb-40">
+      <div class="flex justify-between items-center mb-6">
+        <h3 id="titulo-treino" class="text-2xl font-bold"></h3>
+        <button onclick="finalizarTreinoConfirmado()" class="bg-red-600 px-5 py-2 rounded-xl text-sm font-medium">Encerrar</button>
+      </div>
+      <div id="video-exercicio" class="mb-6"></div>
+      <div id="exercicio-atual"></div>
+      <div id="lista-exercicios" class="space-y-4 mt-8"></div>
+    </div>
+    <div class="bg-zinc-900 border-t border-zinc-800 p-5 fixed bottom-0 left-0 right-0 max-w-md mx-auto">
+      <div class="flex justify-between items-center">
+        <button onclick="exercicioAnterior()" class="bg-zinc-800 px-8 py-4 rounded-2xl font-medium">Anterior</button>
+        <div class="text-center">
+          <div id="timer" class="timer text-emerald-400">1:30</div>
+          <p class="text-sm text-zinc-400">descanso</p>
+        </div>
+        <button onclick="proximoExercicio()" class="bg-emerald-600 px-8 py-4 rounded-2xl font-medium">Próximo</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then(reg => console.log('Service Worker ativo'))
+          .catch(err => console.log('Erro no Service Worker', err));
+      });
+    }
+
+    lucide.createIcons();
+
+    // ────────────────────────────────────────────────
+    // DADOS
+    // ────────────────────────────────────────────────
+
+    const treinos = {
+      0: [
+        { id: 1, nome: "Full Body Iniciante", duracao: "45 min", descansoPadrao: 90, exercicios: [
+          { nome: "Agachamento Livre", series: 3, reps: "10-12", videoId: "YaXPRqUwItQ" },
+          { nome: "Flexão de Braço", series: 3, reps: "8-12", videoId: "IODxDxX7oi4" },
+          { nome: "Remada Invertida", series: 3, reps: "10-12", videoId: "pYyp0JHQ0gU" },
+          { nome: "Prancha", series: 3, reps: "30-45s", videoId: "yr5R3hZ5O5s" }
+        ]},
+        { id: 2, nome: "Core + Mobilidade", duracao: "35 min", descansoPadrao: 60, exercicios: [
+          { nome: "Prancha Lateral", series: 3, reps: "20-30s cada lado", videoId: "jD2q6o6o0" },
+          { nome: "Abdominal Infra", series: 3, reps: "12-15", videoId: "2pLT-olgUJs" }
+        ]}
+      ],
+      1: [
+        { id: 3, nome: "Push / Pull / Legs Avançado", duracao: "70 min", descansoPadrao: 120, exercicios: [
+          { nome: "Supino Reto Barra", series: 4, reps: "6-8", videoId: "vcBig73ojpE" },
+          { nome: "Agachamento Búlgaro", series: 4, reps: "8-10", videoId: "2C-uNgXrSds" },
+          { nome: "Deadlift Romeno", series: 4, reps: "8-10", videoId: "JCXUYuzwNrM" },
+          { nome: "Barra Fixa", series: 4, reps: "6-10", videoId: "eGo4IYlbE5g" }
+        ]},
+        { id: 4, nome: "Hipertrofia Peito + Ombros", duracao: "60 min", descansoPadrao: 90, exercicios: [
+          { nome: "Supino Inclinado Halteres", series: 4, reps: "8-12", videoId: "8iPEnn-ltC8" },
+          { nome: "Elevação Lateral", series: 4, reps: "10-15", videoId: "qEwKCR5JCog" }
+        ]}
+      ]
+    };
+
+    let usuario = JSON.parse(localStorage.getItem('usuario')) || null;
+    let historicoTreinos = JSON.parse(localStorage.getItem('historicoTreinos')) || [];
+    let historicoMedidas = JSON.parse(localStorage.getItem('historicoMedidas')) || [];
+    let treinoAtual = null;
+    let indiceExercicioAtual = 0;
+    let intervaloTimer = null;
+
+    // ────────────────────────────────────────────────
+    // FUNÇÕES DE LOGIN / INTERFACE
+    // ────────────────────────────────────────────────
+
+    function realizarLogin() {
+      const nome = document.getElementById('input-nome').value.trim();
+      const email = document.getElementById('input-email').value.trim();
+      if (!nome || !email) return alert('Preencha nome e email');
+
+      usuario = { nome, email };
+      localStorage.setItem('usuario', JSON.stringify(usuario));
+
+      document.getElementById('login-modal').style.display = 'none';
+      document.getElementById('nav-principal').classList.remove('hidden');
+
+      document.getElementById('nome-usuario').textContent = nome;
+      document.getElementById('nome-perfil').textContent = nome;
+      document.getElementById('email-perfil').textContent = email;
+
+      solicitarNotificacao();
+      mostrarPagina('home');
+    }
+
+    function solicitarNotificacao() {
+      if (Notification.permission === 'granted') {
+        agendarNotificacao();
+      } else if (Notification.permission !== 'denied') {
+        Notification.requestPermission().then(perm => {
+          if (perm === 'granted') agendarNotificacao();
+        });
+      }
+    }
+
+    function agendarNotificacao() {
+      const agora = new Date();
+      let proxima = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate() + 1, 7, 30, 0);
+      if (proxima < agora) proxima.setDate(proxima.getDate() + 1);
+
+      setTimeout(() => {
+        new Notification("Bom dia! Hora de treinar 💪", {
+          body: "Abra o AcadeFit Pro e registre seu treino de hoje!",
+          icon: "https://picsum.photos/192"
+        });
+        agendarNotificacao();
+      }, proxima - agora);
+    }
+
+    function sair() {
+      if (confirm("Deseja realmente sair?")) {
+        localStorage.removeItem('usuario');
+        location.reload();
+      }
+    }
+
+    // ────────────────────────────────────────────────
+    // NAVEGAÇÃO
+    // ────────────────────────────────────────────────
+
+    function mostrarPagina(pagina) {
+      document.querySelectorAll('[id^="pagina-"]').forEach(el => el.classList.add('hidden'));
+      document.getElementById(`pagina-${pagina}`).classList.remove('hidden');
+
+      if (pagina === 'treinos') renderizarListaTreinos(0);
+      if (pagina === 'progresso') renderizarGraficoProgresso();
+      if (pagina === 'medidas') renderizarGraficoMedidas();
+
+      atualizarNavAtiva(pagina);
+    }
+
+    function atualizarNavAtiva(pagina) {
+      document.querySelectorAll('.nav-btn').forEach(btn => {
+        const icone = btn.querySelector('i');
+        const ativo = btn.getAttribute('onclick').includes(`'${pagina}'`);
+        icone?.classList.toggle('nav-active', ativo);
+        btn.classList.toggle('text-emerald-400', ativo);
+        btn.classList.toggle('text-zinc-400', !ativo);
+      });
+      lucide.createIcons();
+    }
+
+    // ────────────────────────────────────────────────
+    // TREINOS
+    // ────────────────────────────────────────────────
+
+    function renderizarListaTreinos(nivel) {
+      const container = document.getElementById('lista-treinos');
+      container.innerHTML = '';
+      treinos[nivel].forEach(t => {
+        const card = document.createElement('div');
+        card.className = 'bg-zinc-900 rounded-3xl p-6 card-hover cursor-pointer border border-zinc-800';
+        card.innerHTML = `
+          <h3 class="text-xl font-bold mb-2">${t.nome}</h3>
+          <p class="text-emerald-400 text-sm mb-4">${t.duracao} • ${t.exercicios.length} exercícios</p>
+          <div class="grid grid-cols-3 gap-3">
+            ${t.exercicios.slice(0,3).map(ex => `
+              <div class="aspect-video bg-zinc-800 rounded-2xl overflow-hidden">
+                <iframe src="https://www.youtube.com/embed/${ex.videoId}" frameborder="0" allowfullscreen class="w-full h-full"></iframe>
+              </div>
+            `).join('')}
+          </div>
+        `;
+        card.onclick = () => iniciarTreino(t);
+        container.appendChild(card);
+      });
+    }
+
+    function filtrarNivel(nivel) {
+      document.getElementById('aba-iniciante').classList.toggle('bg-emerald-600', nivel === 0);
+      document.getElementById('aba-iniciante').classList.toggle('bg-zinc-800', nivel !== 0);
+      document.getElementById('aba-avancado').classList.toggle('bg-emerald-600', nivel === 1);
+      document.getElementById('aba-avancado').classList.toggle('bg-zinc-800', nivel !== 1);
+      renderizarListaTreinos(nivel);
+    }
+
+    function iniciarTreinoPorIndice(indice) {
+      const nivel = document.getElementById('aba-avancado').classList.contains('bg-emerald-600') ? 1 : 0;
+      const treino = treinos[nivel][indice];
+      if (treino) iniciarTreino(treino);
+    }
+
+    function iniciarTreino(treino) {
+      treinoAtual = { ...treino, exercicios: treino.exercicios.map(e => ({...e, seriesFeitas: 0, pesoUsado: 0})) };
+      indiceExercicioAtual = 0;
+      document.getElementById('titulo-treino').textContent = treino.nome;
+      renderizarExercicioAtual();
+      renderizarListaExercicios();
+      document.getElementById('modal-treino').classList.remove('hidden');
+      iniciarTimer(treinoAtual.exercicios[0].descanso || treinoAtual.descansoPadrao);
+    }
+
+    function renderizarExercicioAtual() {
+      const ex = treinoAtual.exercicios[indiceExercicioAtual];
+      document.getElementById('video-exercicio').innerHTML = `
+        <iframe src="https://www.youtube.com/embed/${ex.videoId}" frameborder="0" allowfullscreen class="w-full aspect-video"></iframe>
+      `;
+      document.getElementById('exercicio-atual').innerHTML = `
+        <h4 class="text-2xl font-bold mb-3">${ex.nome}</h4>
+        <p class="text-emerald-400 text-xl mb-4">${ex.series} × ${ex.reps}</p>
+        <label class="block text-sm mb-2">Peso usado (kg):</label>
+        <input type="number" id="peso-atual" value="${ex.pesoUsado}" step="2.5" class="w-full bg-zinc-800 p-4 rounded-xl text-center text-2xl mb-6 border border-zinc-700" />
+        <div class="grid grid-cols-3 gap-3">
+          ${Array(ex.series).fill().map((_, i) => `
+            <button onclick="marcarSerie(${i+1})" class="py-5 rounded-2xl ${i < ex.seriesFeitas ? 'bg-emerald-700' : 'bg-zinc-800'} hover:bg-emerald-800 transition font-medium">
+              Série ${i+1}
+            </button>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    function marcarSerie(numero) {
+      const ex = treinoAtual.exercicios[indiceExercicioAtual];
+      if (numero > ex.seriesFeitas) {
+        ex.seriesFeitas = numero;
+        ex.pesoUsado = parseFloat(document.getElementById('peso-atual').value) || 0;
+        renderizarExercicioAtual();
+        renderizarListaExercicios();
+      }
+    }
+
+    function renderizarListaExercicios() {
+      document.getElementById('lista-exercicios').innerHTML = treinoAtual.exercicios.map((ex, idx) => `
+        <div class="flex justify-between items-center p-4 bg-zinc-800 rounded-2xl ${idx === indiceExercicioAtual ? 'border-2 border-emerald-500' : ''}">
+          <div>
+            <p class="font-semibold">${ex.nome}</p>
+            <p class="text-sm text-zinc-400">${ex.seriesFeitas} / ${ex.series}</p>
+          </div>
+          <p class="text-emerald-400 font-medium">${ex.pesoUsado} kg</p>
+        </div>
+      `).join('');
+    }
+
+    function iniciarTimer(segundos) {
+      if (intervaloTimer) clearInterval(intervaloTimer);
+      let tempo = segundos;
+      const display = document.getElementById('timer');
+      intervaloTimer = setInterval(() => {
+        const min = Math.floor(tempo / 60);
+        const seg = tempo % 60;
+        display.textContent = `${min}:${seg < 10 ? '0' : ''}${seg}`;
+        if (tempo <= 0) clearInterval(intervaloTimer);
+        tempo--;
+      }, 1000);
+    }
+
+    function proximoExercicio() {
+      if (indiceExercicioAtual < treinoAtual.exercicios.length - 1) {
+        indiceExercicioAtual++;
+        renderizarExercicioAtual();
+        renderizarListaExercicios();
+        iniciarTimer(treinoAtual.exercicios[indiceExercicioAtual].descanso || treinoAtual.descansoPadrao);
+      } else {
+        finalizarTreino();
+      }
+    }
+
+    function exercicioAnterior() {
+      if (indiceExercicioAtual > 0) {
+        indiceExercicioAtual--;
+        renderizarExercicioAtual();
+        renderizarListaExercicios();
+        iniciarTimer(treinoAtual.exercicios[indiceExercicioAtual].descanso || treinoAtual.descansoPadrao);
+      }
+    }
+
+    function finalizarTreinoConfirmado() {
+      if (confirm("Encerrar treino agora?")) {
+        document.getElementById('modal-treino').classList.add('hidden');
+        if (intervaloTimer) clearInterval(intervaloTimer);
+      }
+    }
+
+    function finalizarTreino() {
+      const volume = treinoAtual.exercicios.reduce((sum, ex) => sum + (ex.seriesFeitas * ex.pesoUsado * 10), 0); // aproximação simples
+      historicoTreinos.push({
+        data: new Date().toLocaleDateString('pt-BR'),
+        treino: treinoAtual.nome,
+        volume,
+        exercicios: treinoAtual.exercicios.map(ex => ({nome: ex.nome, peso: ex.pesoUsado, series: ex.seriesFeitas}))
+      });
+      localStorage.setItem('historicoTreinos', JSON.stringify(historicoTreinos));
+      alert(`Treino concluído!\nVolume estimado: ${volume} kg`);
+      document.getElementById('modal-treino').classList.add('hidden');
+      mostrarPagina('progresso');
+    }
+
+    // ────────────────────────────────────────────────
+    // MEDIDAS
+    // ────────────────────────────────────────────────
+
+    function salvarMedida() {
+      const hoje = new Date().toLocaleDateString('pt-BR');
+      const medida = {
+        data: hoje,
+        peso: parseFloat(document.getElementById('input-peso').value) || null,
+        braco: parseFloat(document.getElementById('input-braco').value) || null,
+        peito: parseFloat(document.getElementById('input-peito').value) || null
+      };
+      historicoMedidas.push(medida);
+      localStorage.setItem('historicoMedidas', JSON.stringify(historicoMedidas));
+      alert('Medida registrada com sucesso!');
+      renderizarGraficoMedidas();
+    }
+
+    function renderizarGraficoMedidas() {
+      const ctx = document.getElementById('grafico-medidas').getContext('2d');
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: historicoMedidas.map(m => m.data),
+          datasets: [
+            { label: 'Peso (kg)', data: historicoMedidas.map(m => m.peso), borderColor: '#10b981', tension: 0.3 },
+            { label: 'Braço (cm)', data: historicoMedidas.map(m => m.braco), borderColor: '#3b82f6', tension: 0.3 },
+            { label: 'Peito (cm)', data: historicoMedidas.map(m => m.peito), borderColor: '#f59e0b', tension: 0.3 }
+          ]
+        },
+        options: { responsive: true, scales: { y: { beginAtZero: false } } }
+      });
+    }
+
+    // ────────────────────────────────────────────────
+    // PROGRESSO + EXPORTAÇÃO
+    // ────────────────────────────────────────────────
+
+    function renderizarGraficoProgresso() {
+      document.getElementById('contagem-treinos').textContent = historicoTreinos.length;
+      const volumeTotal = historicoTreinos.reduce((sum, t) => sum + (t.volume || 0), 0);
+      document.getElementById('volume-total').textContent = volumeTotal.toLocaleString() + ' kg';
+
+      const ctx = document.getElementById('grafico-progresso').getContext('2d');
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: historicoTreinos.map(t => t.data),
+          datasets: [{
+            label: 'Volume (kg)',
+            data: historicoTreinos.map(t => t.volume),
+            borderColor: '#10b981',
+            tension: 0.3,
+            fill: false
+          }]
+        },
+        options: { responsive: true, scales: { y: { beginAtZero: true } } }
+      });
+    }
+
+    function exportarDados(formato) {
+      let conteudo, nomeArquivo, tipo;
+      if (formato === 'json') {
+        conteudo = JSON.stringify({ usuario, historicoTreinos, historicoMedidas }, null, 2);
+        nomeArquivo = 'acadefit_backup.json';
+        tipo = 'application/json';
+      } else {
+        let csv = 'Data,Treino,Volume\n';
+        historicoTreinos.forEach(t => csv += `"${t.data}","${t.treino}",${t.volume}\n`);
+        csv += '\nMedidas\nData,Peso,Braço,Peito\n';
+        historicoMedidas.forEach(m => csv += `"${m.data}",${m.peso || ''},${m.braco || ''},${m.peito || ''}\n`);
+        conteudo = csv;
+        nomeArquivo = 'acadefit_historico.csv';
+        tipo = 'text/csv;charset=utf-8;';
+      }
+
+      const blob = new Blob([conteudo], { type });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = nomeArquivo;
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // ────────────────────────────────────────────────
+    // INICIALIZAÇÃO
+    // ────────────────────────────────────────────────
+
+    window.onload = () => {
+      if (usuario) {
+        document.getElementById('login-modal').style.display = 'none';
+        document.getElementById('nav-principal').classList.remove('hidden');
+        document.getElementById('nome-usuario').textContent = usuario.nome;
+        document.getElementById('nome-perfil').textContent = usuario.nome;
+        document.getElementById('email-perfil').textContent = usuario.email;
+        solicitarNotificacao();
+        mostrarPagina('home');
+      }
+      lucide.createIcons();
+    };
+  </script>
+</body>
+</html>
