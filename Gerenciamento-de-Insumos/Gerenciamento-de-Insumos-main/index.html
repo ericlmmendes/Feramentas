@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciamento de Insumos</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- FontAwesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet" />
+    
+    <!-- SheetJS (Necessário para a leitura de XLSX que está no seu script) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <!-- Configuração extra do Tailwind (opcional, para cores da marca) -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            500: '#2563eb', // Azul padrão
+                            600: '#1d4ed8', // Azul hover
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-slate-50 flex flex-col min-h-screen text-slate-800 font-sans">
+    
+    <!-- Conteúdo Principal -->
+    <main class="flex-grow flex items-center justify-center p-4 sm:p-6">
+        <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-slate-100">
+            
+            <!-- Cabeçalho do Card -->
+            <div class="text-center mb-8">
+                <div class="inline-flex items-center justify-center w-24 h-24 bg-blue-50 rounded-full mb-4">
+                    <i class="fa-solid fa-warehouse text-5xl text-brand-500"></i>
+                </div>
+                <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Gestão de Insumos</h1>
+                <p class="text-slate-500 mt-2 text-sm">Selecione o módulo desejado</p>
+            </div>
+
+            <!-- Menu de Navegação -->
+            <nav class="space-y-3">
+                <a href="inbound_outbound.html" class="group flex items-center justify-between p-4 bg-slate-50 hover:bg-brand-500 hover:text-white rounded-xl transition-all duration-300 shadow-sm border border-slate-200 hover:border-brand-500">
+                    <div class="flex items-center gap-3">
+                        <i class="fa-solid fa-truck-ramp-box text-brand-500 group-hover:text-white transition-colors"></i>
+                        <span class="font-semibold">Inbound / Outbound</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-right opacity-0 group-hover:opacity-100 transition-opacity transform group-hover:translate-x-1"></i>
+                </a>
+
+                <a href="inventario.html" class="group flex items-center justify-between p-4 bg-slate-50 hover:bg-brand-500 hover:text-white rounded-xl transition-all duration-300 shadow-sm border border-slate-200 hover:border-brand-500">
+                    <div class="flex items-center gap-3">
+                        <i class="fa-solid fa-boxes-stacked text-brand-500 group-hover:text-white transition-colors"></i>
+                        <span class="font-semibold">Inventário</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-right opacity-0 group-hover:opacity-100 transition-opacity transform group-hover:translate-x-1"></i>
+                </a>
+
+                <a href="expedicao.html" class="group flex items-center justify-between p-4 bg-slate-50 hover:bg-brand-500 hover:text-white rounded-xl transition-all duration-300 shadow-sm border border-slate-200 hover:border-brand-500">
+                    <div class="flex items-center gap-3">
+                        <i class="fa-solid fa-truck-fast text-brand-500 group-hover:text-white transition-colors"></i>
+                        <span class="font-semibold">Expedição</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-right opacity-0 group-hover:opacity-100 transition-opacity transform group-hover:translate-x-1"></i>
+                </a>
+
+                <a href="asset.html" class="group flex items-center justify-between p-4 bg-slate-50 hover:bg-brand-500 hover:text-white rounded-xl transition-all duration-300 shadow-sm border border-slate-200 hover:border-brand-500">
+                    <div class="flex items-center gap-3">
+                        <i class="fa-solid fa-cubes text-brand-500 group-hover:text-white transition-colors"></i>
+                        <span class="font-semibold">Asset</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-right opacity-0 group-hover:opacity-100 transition-opacity transform group-hover:translate-x-1"></i>
+                </a>
+
+                <a href="visualizacao.html" class="group flex items-center justify-between p-4 bg-slate-50 hover:bg-brand-500 hover:text-white rounded-xl transition-all duration-300 shadow-sm border border-slate-200 hover:border-brand-500">
+                    <div class="flex items-center gap-3">
+                        <i class="fa-solid fa-chart-pie text-brand-500 group-hover:text-white transition-colors"></i>
+                        <span class="font-semibold">Visualização</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-right opacity-0 group-hover:opacity-100 transition-opacity transform group-hover:translate-x-1"></i>
+                </a>
+            </nav>
+        </div>
+    </main>
+
+    <!-- Rodapé -->
+    <footer class="bg-slate-900 text-slate-400 text-center p-4 mt-auto text-sm">
+        <p>&copy; <span id="current-year"></span> ERICLM. Todos os direitos reservados.</p>
+    </footer>
+
+    <!-- Scripts de Lógica de Negócio -->
+    <script type="text/javascript">
+        // Atualizar o ano do rodapé automaticamente
+        document.getElementById('current-year').textContent = new Date().getFullYear();
+
+        // Lógica de manipulação de planilhas (Modernizada)
+        let gk_isXlsx = false;
+        let gk_xlsxFileLookup = {};
+        let gk_fileData = {};
+
+        function filledCell(cell) {
+            return cell !== '' && cell != null;
+        }
+
+        function loadFileData(filename) {
+            if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+                try {
+                    const workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+
+                    // Converter planilha para JSON para filtrar linhas em branco
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                    
+                    // Filtrar linhas em branco
+                    const filteredData = jsonData.filter(row => row.some(filledCell));
+
+                    // Encontrar a linha de cabeçalho
+                    let headerRowIndex = filteredData.findIndex((row, index) => {
+                        const nextRow = filteredData[index + 1];
+                        return nextRow ? row.filter(filledCell).length >= nextRow.filter(filledCell).length : true;
+                    });
+                    
+                    // Fallback
+                    if (headerRowIndex === -1 || headerRowIndex > 25) {
+                        headerRowIndex = 0;
+                    }
+
+                    // Converter JSON filtrado de volta para CSV
+                    let csvSheet = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex));
+                    return XLSX.utils.sheet_to_csv(csvSheet, { header: 1 });
+                    
+                } catch (e) {
+                    console.error("Erro ao processar arquivo XLSX:", e);
+                    return "";
+                }
+            }
+            return gk_fileData[filename] || "";
+        }
+    </script>
+</body> 
+</html>
+
+
