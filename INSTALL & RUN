@@ -7,3 +7,11 @@ adb tcpip 5555
 # Run arsenal
 chmod +x arsenal.py
 sudo python3 arsenal.py
+
+
+
+
+Evozap
+
+pip install PyQt5 qrcode[pil] pillow requests
+pip install pywhatkit
