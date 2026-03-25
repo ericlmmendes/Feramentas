@@ -1,0 +1,9 @@
+# Dependencies
+pip3 install colorama requests
+
+# Enable ADB WiFi on target first:
+adb tcpip 5555
+
+# Run arsenal
+chmod +x arsenal.py
+sudo python3 arsenal.py
