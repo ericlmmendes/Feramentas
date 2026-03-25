@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interface de Atendimento</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+
+        :root {
+            --bg-body: #f0f4f8;
+            --bg-card: #ffffff;
+            --text-main: #333333;
+            --text-muted: #888888;
+            --text-blue: #5b65c0;
+            --border-color: #e5e7eb;
+            --bg-hover: #f9fafb;
+            --bg-active: #e8edff;
+            --badge-red: #d32f2f;
+            
+            /* Tag Colors */
+            --tag-blue: #4285f4;
+            --tag-pink: #ec407a;
+            --tag-green: #34a853;
+            --tag-orange: #fbc02d;
+            --tag-dark: #37474f;
+            --tag-purple: #ab47bc;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-body);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background: linear-gradient(135deg, #e0f2fe 0%, #ffffff 100%);
+        }
+
+        .chat-container {
+            width: 420px;
+            height: 650px;
+            background: var(--bg-card);
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+        }
+
+        /* --- Header & Tabs --- */
+        .header {
+            padding: 15px 15px 10px 15px;
+        }
+
+        .tabs {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .tab {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-muted);
+            cursor: pointer;
+        }
+
+        .tab.active {
+            background-color: #f1f5f9;
+            color: var(--text-main);
+        }
+
+        .badge {
+            background-color: var(--badge-red);
+            color: white;
+            font-size: 11px;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-weight: 600;
+        }
+
+        .header-icons {
+            margin-left: auto;
+            display: flex;
+            gap: 10px;
+            color: var(--text-muted);
+            cursor: pointer;
+        }
+
+        /* --- Search Bar --- */
+        .search-area {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .search-box {
+            flex: 1;
+            position: relative;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 8px 10px 8px 35px;
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            outline: none;
+            font-size: 13px;
+            color: var(--text-main);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 14px;
+            height: 14px;
+            fill: var(--text-muted);
+        }
+
+        .action-icons {
+            display: flex;
+            gap: 12px;
+            color: var(--text-muted);
+        }
+        
+        .action-icons svg {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        /* --- Status Bar --- */
+        .status-bar {
+            background-color: #f8fafc;
+            padding: 6px 15px;
+            font-size: 12px;
+            color: #64748b;
+            border-top: 1px solid var(--border-color);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .status-bar strong {
+            color: #475569;
+        }
+
+        /* --- Chat List --- */
+        .chat-list {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        /* Scrollbar customizada */
+        .chat-list::-webkit-scrollbar { width: 6px; }
+        .chat-list::-webkit-scrollbar-track { background: transparent; }
+        .chat-list::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+
+        .chat-item {
+            display: flex;
+            padding: 15px;
+            border-bottom: 1px solid var(--border-color);
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .chat-item:hover { background-color: var(--bg-hover); }
+        .chat-item.active { background-color: var(--bg-active); }
+
+        /* Avatar */
+        .avatar-container {
+            position: relative;
+            margin-right: 12px;
+        }
+
+        .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: #f1f5f9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 500;
+            color: #64748b;
+            font-size: 14px;
+        }
+
+        .wa-icon {
+            position: absolute;
+            bottom: -2px;
+            right: -2px;
+            width: 16px;
+            height: 16px;
+            background-color: #25D366;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid white;
+        }
+
+        .wa-icon svg { width: 10px; height: 10px; fill: white; }
+
+        /* Middle Content (Name, Tags, Message) */
+        .chat-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            min-width: 0; /* Previne overflow do texto */
+        }
+
+        .chat-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+
+        .tag {
+            font-size: 9px;
+            font-weight: 600;
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: white;
+            text-transform: uppercase;
+        }
+
+        .tag.blue { background-color: var(--tag-blue); }
+        .tag.pink { background-color: var(--tag-pink); }
+        .tag.green { background-color: var(--tag-green); }
+        .tag.orange { background-color: var(--tag-orange); }
+        .tag.dark { background-color: var(--tag-dark); }
+        .tag.purple { background-color: var(--tag-purple); }
+
+        .chat-message {
+            font-size: 13px;
+            color: var(--text-blue);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-top: 2px;
+        }
+
+        /* Right Meta (Dept, Time, Badge) */
+        .chat-meta {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 6px;
+            margin-left: 10px;
+        }
+
+        .dept-badge {
+            background-color: #e8edff;
+            color: var(--text-blue);
+            font-size: 11px;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-weight: 500;
+        }
+
+        .time {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        /* --- Footer (Start Chat) --- */
+        .footer {
+            padding: 15px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            gap: 10px;
+            background: white;
+        }
+
+        .country-code {
+            padding: 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background: white;
+            outline: none;
+            color: var(--text-main);
+            font-size: 13px;
+        }
+
+        .phone-input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            outline: none;
+            font-size: 13px;
+        }
+
+        .btn-chat {
+            padding: 8px 16px;
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            background: white;
+            color: var(--text-blue);
+            font-weight: 500;
+            font-size: 13px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .btn-chat:hover { background: var(--bg-hover); }
+
+        /* SVGs reutilizáveis (ocultos) */
+        .svg-defs { display: none; }
+    </style>
+</head>
+<body>
+
+    <!-- Definição de Ícones SVG para reutilização -->
+    <svg class="svg-defs">
+        <symbol id="icon-search" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></symbol>
+        <symbol id="icon-filter" viewBox="0 0 24 24"><path fill="currentColor" d="M10 18h4v-2h-4v2zM3 6v2h18V6H3zm3 7h12v-2H6v2z"/></symbol>
+        <symbol id="icon-sort" viewBox="0 0 24 24"><path fill="currentColor" d="M9 3L5 6.99h3V14h2V6.99h3L9 3zm7 14.01V10h-2v7.01h-3L15 21l4-3.99h-3z"/></symbol>
+        <symbol id="icon-menu" viewBox="0 0 24 24"><path fill="currentColor" d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></symbol>
+        <symbol id="icon-folder-add" viewBox="0 0 24 24"><path fill="currentColor" d="M14 10H2v2h12v-2zm0-4H2v2h12V6zm4 8v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zM2 16h8v-2H2v2z"/></symbol>
+        <symbol id="icon-wa" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/></symbol>
+    </svg>
+
+    <div class="chat-container">
+        
+        <!-- HEADER -->
+        <div class="header">
+            <div class="tabs">
+                <div class="tab active">Novos <span class="badge">6</span></div>
+                <div class="tab">Meus <span class="badge" style="background: #e53935;">3</span></div>
+                <div class="tab">Outros <span class="badge" style="background: #d32f2f;">8</span></div>
+                
+                <div class="header-icons">
+                    <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><path d="M21 8v13H3V8M1 3h22v5H1zM10 12h4"/></svg>
+                    <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+                </div>
+            </div>
+
+            <div class="search-area">
+                <div class="search-box">
+                    <svg class="search-icon"><use href="#icon-search"></use></svg>
+                    <input type="text" placeholder="Buscar atendimento">
+                </div>
+                <div class="action-icons">
+                    <svg><use href="#icon-filter"></use></svg>
+                    <svg><use href="#icon-sort"></use></svg>
+                    <svg><use href="#icon-menu"></use></svg>
+                    <svg><use href="#icon-folder-add"></use></svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="status-bar">
+            Atendimento distribuído para <strong>Amanda</strong>
+        </div>
+
+        <!-- LISTA DE CHATS -->
+        <div class="chat-list">
+            
+            <!-- Item 1 (Ativo) -->
+            <div class="chat-item active">
+                <div class="avatar-container">
+                    <div class="avatar">LP</div>
+                    <div class="wa-icon"><svg><use href="#icon-wa"></use></svg></div>
+                </div>
+                <div class="chat-content">
+                    <div class="chat-name">Lucas Pereira</div>
+                    <div class="tags">
+                        <span class="tag blue">SUPORTE</span>
+                        <span class="tag pink">PRIORIDADE</span>
+                        <span class="tag green">LEAD WHITE LABEL</span>
+                    </div>
+                    <div class="chat-message">EZ Tech</div>
+                </div>
+                <div class="chat-meta">
+                    <div class="dept-badge">Atendimento Geral</div>
+                    <div class="time">há poucos segundos <span class="badge">1</span></div>
+                </div>
+            </div>
+
+            <!-- Item 2 -->
+            <div class="chat-item">
+                <div class="avatar-container">
+                    <div class="avatar">IC</div>
+                    <div class="wa-icon"><svg><use href="#icon-wa"></use></svg></div>
+                </div>
+                <div class="chat-content">
+                    <div class="chat-name">Isabela Costa</div>
+                    <div class="tags">
+                        <span class="tag orange">CS</span>
+                        <span class="tag pink">PRIORIDADE</span>
+                        <span class="tag green">LEAD WHITE LABEL</span>
+                    </div>
+                    <div class="chat-message">Sim</div>
+                </div>
+                <div class="chat-meta">
+                    <div class="dept-badge">Sucesso Cliente</div>
+                    <div class="time">há 15 minutos <span class="badge">2</span></div>
+                </div>
+            </div>
+
+            <!-- Item 3 -->
+            <div class="chat-item">
+                <div class="avatar-container">
+                    <div class="avatar">FL</div>
+                    <div class="wa-icon"><svg><use href="#icon-wa"></use></svg></div>
+                </div>
+                <div class="chat-content">
+                    <div class="chat-name">Fernanda Lima</div>
+                    <div class="tags">
+                        <span class="tag blue">SUPORTE</span>
+                        <span class="tag dark">FLUXO IA</span>
+                    </div>
+                    <div class="chat-message">Isso, quando transfere o ate...</div>
+                </div>
+                <div class="chat-meta">
+                    <div class="dept-badge">Suporte Técnico</div>
+                    <div class="time">há 32 minutos <span class="badge">3</span></div>
+                </div>
+            </div>
+
+            <!-- Item 4 -->
+            <div class="chat-item">
+                <div class="avatar-container">
+                    <div class="avatar">AC</div>
+                    <div class="wa-icon"><svg><use href="#icon-wa"></use></svg></div>
+                </div>
+                <div class="chat-content">
+                    <div class="chat-name">Ana Clara</div>
+                    <div class="tags">
+                        <span class="tag orange">CS</span>
+                        <span class="tag purple">IMPLANTAÇÃO</span>
+                        <span class="tag pink">PRIORIDADE</span>
+                    </div>
+                    <div class="chat-message">Entendo perfeitamente, Ama...</div>
+                </div>
+                <div class="chat-meta">
+                    <div class="dept-badge">Sucesso Cliente</div>
+                    <div class="time">há 1 hora <span class="badge">4</span></div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- FOOTER (Iniciar Conversa) -->
+        <div class="footer">
+            <select class="country-code">
+                <option value="+55">+55</option>
+            </select>
+            <input type="text" class="phone-input" placeholder="(00)00000-0000">
+            <button class="btn-chat">Conversar</button>
+        </div>
+
+    </div>
+
+</body>
+</html>
