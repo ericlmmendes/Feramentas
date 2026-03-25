@@ -1,349 +1,421 @@
 import sys
 import re
-import ast
+import json
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QTextEdit, QVBoxLayout, 
                              QHBoxLayout, QWidget, QPushButton, QLabel, QComboBox, 
-                             QSplitter, QFrame, QScrollArea, QMessageBox)
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer
-from PyQt6.QtGui import QFont, QSyntaxHighlighter, QTextCharFormat, QFontMetrics
+                             QSplitter, QFrame, QScrollArea, QMessageBox, QProgressBar)
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer, QPropertyAnimation, QEasingCurve
+from PyQt6.QtGui import QFont, QSyntaxHighlighter, QTextCharFormat, QFontMetrics, QColor
 
-class CodeHighlighter(QSyntaxHighlighter):
-    def __init__(self, document):
+class MultiLanguageHighlighter(QSyntaxHighlighter):
+    def __init__(self, document, language="python"):
         super().__init__(document)
-        self.highlighting_rules = []
+        self.language = language
+        self.rules = {}
+        self.setup_rules()
+    
+    def setup_rules(self):
+        # Python
+        python_keywords = ["and", "as", "assert", "break", "class", "continue", "def", 
+                          "del", "elif", "else", "except", "finally", "for", "from", 
+                          "global", "if", "import", "in", "is", "lambda", "nonlocal", 
+                          "not", "or", "pass", "raise", "return", "try", "while", "with", "yield"]
         
-        # Definição de regras de destaque para Python
-        keyword_format = QTextCharFormat()
-        keyword_format.setForeground(Qt.GlobalColor.darkBlue)
-        keyword_format.setFontWeight(QFont.Weight.Bold.value)
-        
-        keywords = ["and", "as", "assert", "break", "class", "continue", "def", 
-                   "del", "elif", "else", "except", "finally", "for", "from", 
-                   "global", "if", "import", "in", "is", "lambda", "nonlocal", 
-                   "not", "or", "pass", "raise", "return", "try", "while", "with", "yield"]
-        
-        for word in keywords:
-            pattern = re.compile(rf'\b{word}\b')
-            self.highlighting_rules.append((pattern, keyword_format))
+        self.rules = {
+            'python': {
+                'keywords': (python_keywords, QColor(100, 150, 255), True),
+                'strings': (r'"[^"\\]*(\\[\s\S][^"\\]*)*"' + r"|'''[^'\\]*(\\[\s\S][^'\\]*)*?'''", QColor(0, 200, 0)),
+                'comments': (r'#.*', QColor(120, 120, 120)),
+                'functions': (r'\b[A-Za-z_][A-Za-z0-9_]*\s*(?=\()', QColor(255, 150, 0))
+            },
+            'html': {
+                'tags': (r'</?[\w:\-]+(?:\s+[^\s>]+(?:=(?:"[^"]*"|\'[^\']*\'|[^\s>]+))?)*\s*/?>', QColor(200, 50, 50)),
+                'attributes': (r'\b[\w-]+(?=\s*=)', QColor(100, 150, 255)),
+                'comments': (r'<!--[\s\S]*?-->', QColor(120, 120, 120))
+            },
+            'css': {
+                'properties': (r'[\w-]+\s*:', QColor(100, 150, 255)),
+                'values': (r':\s*[^{};]+', QColor(0, 200, 0)),
+                'selectors': (r'^[^\{]+(?=\{)', QColor(255, 150, 0))
+            },
+            'javascript': {
+                'keywords': (["function", "var", "let", "const", "if", "else", "for", "while", "return"], QColor(100, 150, 255)),
+                'strings': (r'"[^"\\]*(\\[\s\S][^"\\]*)*?"', QColor(0, 200, 0))
+            },
+            'json': {
+                'keys': (r'"[a-zA-Z_][a-zA-Z0-9_]*"\s*:', QColor(100, 150, 255)),
+                'strings': (r'"[^"\\]*(\\[\s\S][^"\\]*)*?"', QColor(0, 200, 0)),
+                'numbers': (r'-?\d+(\.\d+)?([eE][+-]?\d+)?', QColor(255, 150, 0))
+            }
+        }
     
     def highlightBlock(self, text):
-        for pattern, format_obj in self.highlighting_rules:
-            for match in pattern.finditer(text):
-                start = match.start()
-                length = match.end() - match.start()
-                self.setFormat(start, length, format_obj)
+        rules = self.rules.get(self.language, self.rules['python'])
+        
+        for pattern_str, color in rules.values():
+            if isinstance(pattern_str, list):  # keywords
+                for word in pattern_str:
+                    pattern = re.compile(rf'\b{re.escape(word)}\b')
+                    format_obj = QTextCharFormat()
+                    format_obj.setForeground(color)
+                    for match in pattern.finditer(text):
+                        self.setFormat(match.start(), match.end() - match.start(), format_obj)
+            else:  # regex patterns
+                pattern = re.compile(pattern_str)
+                format_obj = QTextCharFormat()
+                format_obj.setForeground(color)
+                for match in pattern.finditer(text):
+                    self.setFormat(match.start(), match.end() - match.start(), format_obj)
 
-class CodeAnalyzer(QThread):
+class UniversalCodeAnalyzer(QThread):
     code_improved = pyqtSignal(str)
-    progress_updated = pyqtSignal(str)
+    progress_updated = pyqtSignal(str, int)
     
-    def __init__(self, original_code, improvement_type):
+    def __init__(self, original_code, language, improvement_type):
         super().__init__()
         self.original_code = original_code
-        self.improvement_type = improvement_type
-        self._stop = False
+        self.language = language.lower()
+        self.improvement_type = improvement_type.lower()
     
     def run(self):
-        if self._stop:
-            return
-            
         try:
-            self.progress_updated.emit("Analisando código original...")
-            improved_code = self.improve_code(self.original_code, self.improvement_type)
+            self.progress_updated.emit("🔍 Detectando linguagem...", 10)
+            improved_code = self.analyze_and_improve()
             self.code_improved.emit(improved_code)
         except Exception as e:
-            self.code_improved.emit(f"Erro na análise: {str(e)}")
+            self.code_improved.emit(f"❌ Erro: {str(e)}")
     
-    def improve_code(self, code, improvement_type):
-        lines = code.split('\n')
+    def analyze_and_improve(self):
+        lines = self.original_code.split('\n')
         improved_lines = lines.copy()
         
-        self.progress_updated.emit("Aplicando melhorias...")
+        improvements = {
+            'performance': self.optimize_performance,
+            'readability': self.improve_readability,
+            'security': self.improve_security,
+            'style': self.improve_style,
+            'minify': self.minify_code,
+            'all': self.improve_all
+        }
         
-        # Melhorias específicas por tipo
-        if improvement_type == "performance":
-            improved_lines = self.optimize_performance(improved_lines)
-        elif improvement_type == "readability":
-            improved_lines = self.improve_readability(improved_lines)
-        elif improvement_type == "security":
-            improved_lines = self.improve_security(improved_lines)
-        elif improvement_type == "style":
-            improved_lines = self.improve_style(improved_lines)
-        elif improvement_type == "all":
-            improved_lines = self.optimize_performance(improved_lines)
-            improved_lines = self.improve_readability(improved_lines)
-            improved_lines = self.improve_security(improved_lines)
-            improved_lines = self.improve_style(improved_lines)
+        improvement_func = improvements.get(self.improvement_type, self.improve_all)
+        self.progress_updated.emit("✨ Aplicando melhorias...", 50)
         
+        improved_lines = improvement_func(improved_lines)
         return '\n'.join(improved_lines)
     
+    def detect_language_patterns(self, lines):
+        content = '\n'.join(lines)
+        if '<!DOCTYPE html>' in content or '<html' in content:
+            return 'html'
+        elif '{' in content and '}' in content and ('px' in content or 'color' in content):
+            return 'css'
+        elif ('function' in content or '=>' in content) and ('{' in content):
+            return 'javascript'
+        elif content.strip().startswith('{') and content.strip().endswith('}'):
+            try:
+                json.loads(content)
+                return 'json'
+            except:
+                pass
+        return self.language
+    
     def optimize_performance(self, lines):
-        # Otimizações de performance mantendo estrutura
-        for i, line in enumerate(lines):
-            # Substituir append em loop por list comprehension quando possível
-            if 'for' in line and '.append(' in line:
-                lines[i] = self.optimize_list_comprehension(line)
-            # Evitar chamadas repetidas de funções
-            lines[i] = re.sub(r'len\(([^)]+)\)', r'__len_cache__\1', line)
+        lang = self.detect_language_patterns(lines)
+        if lang == 'python':
+            for i, line in enumerate(lines):
+                # List comprehensions
+                lines[i] = re.sub(r'\[([^\]]+)\.append\(([^)]+)\)', r'[\2 for \1 in []]', line)
+        elif lang == 'javascript':
+            for i, line in enumerate(lines):
+                lines[i] = re.sub(r'var\s+(\w+)\s*=\s*new\s+Array\(\)', r'const \1 = []', line)
+        elif lang == 'css':
+            # Remover comentários não essenciais
+            lines = [re.sub(r'/\*.*?\*/', '', line, flags=re.DOTALL) for line in lines]
         return lines
     
     def improve_readability(self, lines):
         for i, line in enumerate(lines):
-            # Adicionar espaços em operadores
-            line = re.sub(r'(\w)([+\-*/])(\w)', r'\1 \2 \3', line)
-            # Quebrar linhas longas
-            if len(line) > 88:
-                lines[i] = self.wrap_long_line(line)
+            # Espaçamento consistente
+            line = re.sub(r'([{}();,])\s*', r'\1 ', line)
+            line = re.sub(r'\s+([{}();,])', r' \1', line)
+            
+            # Quebrar linhas longas (>100 chars)
+            if len(line) > 100:
+                line = self.wrap_line(line)
+            
             lines[i] = line
         return lines
     
     def improve_security(self, lines):
+        lang = self.detect_language_patterns(lines)
         for i, line in enumerate(lines):
-            # Sanitizar inputs
-            if 'input(' in line:
-                lines[i] = line.replace('input(', 'input().strip() or ')
-            # Usar with para arquivos
-            if 'open(' in line and 'as f:' not in line:
-                lines[i] = self.add_context_manager(line)
+            if lang == 'html':
+                # Escapar caracteres perigosos
+                lines[i] = re.sub(r'(<script)|javascript:', r'<!-- BLOCKED: \1', line)
+            elif lang == 'javascript':
+                # Adicionar validação básica
+                if 'innerHTML' in line:
+                    lines[i] = line.replace('innerHTML', '.textContent')
+            elif lang == 'python':
+                if 'input(' in line:
+                    lines[i] = line.replace('input(', 'input().strip()')
         return lines
     
     def improve_style(self, lines):
+        lang = self.detect_language_patterns(lines)
         for i, line in enumerate(lines):
-            # PEP8: 4 espaços, sem tabs
-            lines[i] = line.replace('\t', '    ')
-            # Espaços após :
-            lines[i] = re.sub(r':([^ ])', r': \1', lines[i])
-            # Espaços em torno de = para defaults
-            lines[i] = re.sub(r'(\w)=([^ ])', r'\1= \2', lines[i])
+            if lang == 'css':
+                # Organizar propriedades alfabeticamente seria ideal
+                lines[i] = re.sub(r'\s*([a-z-]+):\s*([^;]+);?', r'  \1: \2;', line)
+            elif lang == 'html':
+                # Indentar tags
+                if line.strip().startswith('</') or line.strip().endswith('>'):
+                    lines[i] = line.replace('>', '>\n')
+            elif lang == 'python':
+                # PEP8 spacing
+                lines[i] = re.sub(r':([^ ])', r': \1', line)
+                lines[i] = re.sub(r'([a-zA-Z0-9_])=([a-zA-Z0-9_])', r'\1 = \2', line)
         return lines
     
-    def optimize_list_comprehension(self, line):
-        # Exemplo simples - em produção seria mais sofisticado
-        return line  # Placeholder para lógica mais complexa
+    def minify_code(self, lines):
+        lang = self.detect_language_patterns(lines)
+        if lang == 'css':
+            return [re.sub(r'\s+', ' ', re.sub(r'/\*.*?\*/', '', line)).strip() for line in lines]
+        elif lang == 'javascript' or lang == 'html':
+            return [re.sub(r'\s+', ' ', line).strip() for line in lines]
+        return lines
     
-    def wrap_long_line(self, line):
-        # Placeholder para quebra inteligente de linha
+    def improve_all(self, lines):
+        lines = self.optimize_performance(lines)
+        lines = self.improve_readability(lines)
+        lines = self.improve_security(lines)
+        lines = self.improve_style(lines)
+        return lines
+    
+    def wrap_line(self, line):
+        # Simple line wrapping
+        if len(line) > 100:
+            space_pos = line.rfind(' ', 80, 100)
+            if space_pos > 0:
+                return line[:space_pos] + '\n' + line[space_pos:].lstrip()
         return line
-    
-    def add_context_manager(self, line):
-        return line  # Placeholder
 
-class CodeImprover(QMainWindow):
+class CodeImproverPro(QMainWindow):
     def __init__(self):
         super().__init__()
+        self.current_language = "python"
         self.init_ui()
-        self.highlighter_original = None
-        self.highlighter_improved = None
-        self.analyzer_thread = None
-        
+    
     def init_ui(self):
-        self.setWindowTitle("Code Improver Pro - Otimizador de Código")
-        self.setGeometry(100, 100, 1400, 900)
+        self.setWindowTitle("🚀 Code Improver Pro - Multi-Linguagem")
+        self.setGeometry(100, 100, 1600, 1000)
         
-        # Central widget
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
-        
-        # Layout principal
         main_layout = QVBoxLayout(central_widget)
         
-        # Header
+        # Header com linguagem
         header = QFrame()
         header.setFrameStyle(QFrame.Shape.Box.value)
         header_layout = QHBoxLayout(header)
         
-        title = QLabel("🤖 Code Improver Pro")
-        title.setFont(QFont("Segoe UI", 16, QFont.Weight.Bold.value))
-        title.setStyleSheet("color: #2c3e50; padding: 10px;")
+        title = QLabel("🎨 Code Improver Pro - Multi-Linguagem")
+        title.setFont(QFont("Segoe UI", 18, QFont.Weight.Bold.value))
+        
+        self.language_combo = QComboBox()
+        self.language_combo.addItems(["Python", "HTML", "CSS", "JavaScript", "JSON", "Auto"])
+        self.language_combo.currentTextChanged.connect(self.on_language_changed)
         
         self.improvement_type = QComboBox()
         self.improvement_type.addItems([
-            "all - Completo", 
-            "performance - Performance", 
-            "readability - Legibilidade", 
-            "security - Segurança", 
-            "style - Estilo PEP8"
+            "all - Completa", "performance", "readability - Legibilidade", 
+            "security - Segurança", "style - Estilo", "minify - Minificar"
         ])
-        self.improvement_type.setStyleSheet("""
-            QComboBox {
-                padding: 8px 12px; 
-                font-size: 12px; 
-                border: 2px solid #3498db; 
-                border-radius: 6px;
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
-                    stop:0 #ecf0f1, stop:1 #ffffff);
-            }
-            QComboBox::drop-down { 
-                border: none; 
-                width: 30px; 
-            }
-        """)
         
         header_layout.addWidget(title)
         header_layout.addStretch()
-        header_layout.addWidget(QLabel("Tipo de melhoria:"))
+        header_layout.addWidget(QLabel("Linguagem:"))
+        header_layout.addWidget(self.language_combo)
+        header_layout.addWidget(QLabel("Melhoria:"))
         header_layout.addWidget(self.improvement_type)
         header_layout.addStretch()
         
         main_layout.addWidget(header)
         
-        # Splitter principal
+        # Progress bar
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setVisible(False)
+        main_layout.addWidget(self.progress_bar)
+        
+        # Splitter
         splitter = QSplitter(Qt.Orientation.Vertical)
-        splitter.setStyleSheet("QSplitter::handle { background: #bdc3c7; }")
         
-        # Área original
-        original_frame = QFrame()
-        original_layout = QVBoxLayout(original_frame)
-        original_layout.addWidget(QLabel("📝 Código Original"))
-        self.original_code = QTextEdit()
-        self.original_code.setFont(QFont("Consolas", 11))
-        self.original_code.setStyleSheet("""
-            QTextEdit {
-                border: 2px solid #e74c3c;
-                border-radius: 8px;
-                padding: 12px;
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
-                    stop:0 #fdf2e9, stop:1 #fafafa);
-            }
-        """)
-        self.original_code.setPlaceholderText("Cole aqui seu código Python para análise...")
-        original_layout.addWidget(self.original_code)
+        # Original
+        original_frame = self.create_code_frame("📝 Código Original", "#e74c3c")
+        self.original_code = original_frame['editor']
         
-        # Área melhorada
-        improved_frame = QFrame()
-        improved_layout = QVBoxLayout(improved_frame)
-        improved_layout.addWidget(QLabel("✨ Código Melhorado"))
-        self.improved_code = QTextEdit()
-        self.improved_code.setFont(QFont("Consolas", 11))
-        self.improved_code.setStyleSheet("""
-            QTextEdit {
-                border: 2px solid #27ae60;
-                border-radius: 8px;
-                padding: 12px;
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
-                    stop:0 #e8f8f5, stop:1 #f9f9f9);
-            }
-        """)
-        self.improved_code.setPlaceholderText("O código melhorado aparecerá aqui...")
+        # Improved
+        improved_frame = self.create_code_frame("✨ Código Melhorado", "#27ae60")
+        self.improved_code = improved_frame['editor']
         self.improved_code.setReadOnly(True)
-        improved_layout.addWidget(self.improved_code)
         
-        splitter.addWidget(original_frame)
-        splitter.addWidget(improved_frame)
-        splitter.setSizes([450, 450])
+        splitter.addWidget(original_frame['frame'])
+        splitter.addWidget(improved_frame['frame'])
+        splitter.setSizes([500, 500])
         
         scroll_area = QScrollArea()
         scroll_area.setWidget(splitter)
         scroll_area.setWidgetResizable(True)
-        
         main_layout.addWidget(scroll_area)
         
-        # Botões
+        # Buttons
+        self.create_buttons(main_layout)
+        
+        self.status_bar = self.statusBar()
+        self.status_bar.showMessage("Pronto! Cole seu código e selecione a linguagem")
+    
+    def create_code_frame(self, title, border_color):
+        frame = QFrame()
+        layout = QVBoxLayout(frame)
+        layout.addWidget(QLabel(title))
+        
+        editor = QTextEdit()
+        editor.setFont(QFont("Consolas", 11))
+        editor.setStyleSheet(f"""
+            QTextEdit {{
+                border: 2px solid {border_color};
+                border-radius: 8px;
+                padding: 15px;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                    stop:0 #fff5f5, stop:1 #fafafa);
+            }}
+        """)
+        layout.addWidget(editor)
+        
+        return {'frame': frame, 'editor': editor}
+    
+    def create_buttons(self, main_layout):
         button_layout = QHBoxLayout()
         
-        self.analyze_btn = QPushButton("🚀 Analisar e Melhorar")
-        self.analyze_btn.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold.value))
-        self.analyze_btn.setStyleSheet("""
-            QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
-                    stop:0 #3498db, stop:1 #2980b9);
-                color: white;
-                border: none;
-                padding: 12px 24px;
-                border-radius: 8px;
-                font-size: 13px;
-            }
-            QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
-                    stop:0 #5dade2, stop:1 #3498db);
-            }
-            QPushButton:pressed {
-                background: #2c82c9;
-            }
-            QPushButton:disabled {
-                background: #bdc3c7;
-            }
-        """)
+        self.analyze_btn = QPushButton("🚀 ANALISAR & MELHORAR")
         self.analyze_btn.clicked.connect(self.analyze_code)
         
-        self.copy_btn = QPushButton("📋 Copiar Código Melhorado")
+        self.copy_btn = QPushButton("📋 COPIAR MELHORADO")
         self.copy_btn.clicked.connect(self.copy_improved_code)
         
-        self.clear_btn = QPushButton("🗑️ Limpar Tudo")
+        self.clear_btn = QPushButton("🗑️ LIMPAR")
         self.clear_btn.clicked.connect(self.clear_all)
+        
+        self.compare_btn = QPushButton("🔍 COMPARAR")
+        self.compare_btn.clicked.connect(self.compare_codes)
+        
+        for btn in [self.analyze_btn, self.copy_btn, self.clear_btn, self.compare_btn]:
+            btn.setStyleSheet("""
+                QPushButton {
+                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                        stop:0 #3498db, stop:1 #2980b9);
+                    color: white;
+                    border: none;
+                    padding: 12px 20px;
+                    border-radius: 8px;
+                    font-weight: bold;
+                    font-size: 12px;
+                }
+                QPushButton:hover { background: #5dade2; }
+            """)
         
         button_layout.addStretch()
         button_layout.addWidget(self.clear_btn)
+        button_layout.addWidget(self.compare_btn)
         button_layout.addWidget(self.copy_btn)
         button_layout.addWidget(self.analyze_btn)
         button_layout.addStretch()
         
         main_layout.addLayout(button_layout)
-        
-        # Status bar
-        self.status_bar = self.statusBar()
-        self.status_bar.showMessage("Pronto para analisar código")
-        
-        # Aplicar highlight
+    
+    def on_language_changed(self, lang):
+        self.current_language = lang.lower()
         self.apply_highlighting()
     
     def apply_highlighting(self):
-        self.highlighter_original = CodeHighlighter(self.original_code.document())
-        self.highlighter_improved = CodeHighlighter(self.improved_code.document())
+        lang_map = {
+            "python": "python", "html": "html", "css": "css", 
+            "javascript": "javascript", "json": "json", "auto": "python"
+        }
+        lang = lang_map.get(self.current_language, "python")
+        
+        if self.original_code:
+            old_highlighter = self.original_code.document().findChild(QSyntaxHighlighter)
+            if old_highlighter:
+                old_highlighter.setDocument(None)
+            self.highlighter_original = MultiLanguageHighlighter(self.original_code.document(), lang)
+        
+        if self.improved_code:
+            old_highlighter = self.improved_code.document().findChild(QSyntaxHighlighter)
+            if old_highlighter:
+                old_highlighter.setDocument(None)
+            self.highlighter_improved = MultiLanguageHighlighter(self.improved_code.document(), lang)
     
     def analyze_code(self):
-        original_text = self.original_code.toPlainText().strip()
-        if not original_text:
-            QMessageBox.warning(self, "Aviso", "Por favor, cole um código para analisar!")
+        code = self.original_code.toPlainText().strip()
+        if not code:
+            QMessageBox.warning(self, "Aviso", "Cole um código primeiro!")
             return
         
         self.analyze_btn.setEnabled(False)
-        self.analyze_btn.setText("🔄 Analisando...")
-        self.status_bar.showMessage("Analisando código...")
+        self.progress_bar.setVisible(True)
+        self.progress_bar.setValue(0)
         
-        # Parar thread anterior se existir
-        if self.analyzer_thread and self.analyzer_thread.isRunning():
-            self.analyzer_thread._stop = True
-            self.analyzer_thread.wait()
+        lang = "auto" if self.language_combo.currentText() == "Auto" else self.current_language
+        improvement = self.improvement_type.currentText().split(" - ")[0].lower()
         
-        improvement_type = self.improvement_type.currentText().split(" - ")[0].lower()
-        self.analyzer_thread = CodeAnalyzer(original_text, improvement_type)
-        self.analyzer_thread.code_improved.connect(self.on_code_improved)
-        self.analyzer_thread.progress_updated.connect(self.on_progress_updated)
-        self.analyzer_thread.finished.connect(self.on_analysis_finished)
-        self.analyzer_thread.start()
+        self.analyzer = UniversalCodeAnalyzer(code, lang, improvement)
+        self.analyzer.code_improved.connect(self.on_improved)
+        self.analyzer.progress_updated.connect(self.on_progress)
+        self.analyzer.finished.connect(self.on_finished)
+        self.analyzer.start()
     
-    def on_progress_updated(self, message):
+    def on_progress(self, message, value):
+        self.progress_bar.setValue(value)
         self.status_bar.showMessage(message)
     
-    def on_code_improved(self, improved_code):
-        self.improved_code.setPlainText(improved_code)
+    def on_improved(self, code):
+        self.improved_code.setPlainText(code)
     
-    def on_analysis_finished(self):
+    def on_finished(self):
         self.analyze_btn.setEnabled(True)
-        self.analyze_btn.setText("🚀 Analisar e Melhorar")
-        self.status_bar.showMessage("Análise concluída!")
+        self.progress_bar.setVisible(False)
+        self.status_bar.showMessage("✅ Análise concluída!")
     
     def copy_improved_code(self):
-        improved_text = self.improved_code.toPlainText()
-        if improved_text:
-            QApplication.clipboard().setText(improved_text)
-            self.status_bar.showMessage("Código copiado para área de transferência!")
-        else:
-            QMessageBox.information(self, "Info", "Nenhum código melhorado para copiar!")
+        text = self.improved_code.toPlainText()
+        if text:
+            QApplication.clipboard().setText(text)
+            self.status_bar.showMessage("📋 Copiado!")
     
     def clear_all(self):
         self.original_code.clear()
         self.improved_code.clear()
-        self.status_bar.showMessage("Tela limpa!")
+        self.progress_bar.setValue(0)
+        self.progress_bar.setVisible(False)
+    
+    def compare_codes(self):
+        # Simple diff simulation
+        orig = self.original_code.toPlainText()
+        imp = self.improved_code.toPlainText()
+        if orig and imp:
+            diff_lines = []
+            for i, (o, n) in enumerate(zip(orig.split('\n'), imp.split('\n'))):
+                if o.strip() != n.strip():
+                    diff_lines.append(f"L{i+1}: {o[:50]}... → {n[:50]}...")
+            QMessageBox.information(self, "Diferenças", "\n".join(diff_lines[:10]))
 
 def main():
     app = QApplication(sys.argv)
     app.setStyle('Fusion')
-    
-    window = CodeImprover()
+    window = CodeImproverPro()
     window.show()
-    
     sys.exit(app.exec())
 
 if __name__ == "__main__":
