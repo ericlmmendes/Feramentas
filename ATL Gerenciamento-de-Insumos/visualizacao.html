@@ -1,0 +1,654 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SCI – Visualização</title>
+    <link rel="shortcut icon" href="./img/CDC-ESTOQUE.png">
+    
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Bootstrap & FontAwesome -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet" />
+    
+    <!-- SweetAlert2 -->
+    <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" rel="stylesheet">
+
+    <!-- Bibliotecas JS (PDF e QR Code) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <style>
+      :root {
+        --primary-color: #0d6efd;
+        --primary-hover: #0a58ca;
+        --bg-color: #f4f7f6;
+        --card-bg: #ffffff;
+      }
+
+      body {
+        background-color: var(--bg-color);
+        font-family: "Inter", sans-serif;
+        color: #333;
+      }
+
+      .navbar {
+        background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      }
+
+      .card {
+        border: none;
+        border-radius: 16px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04);
+        transition: transform 0.2s ease;
+      }
+
+      .table-fixed {
+        max-height: 520px;
+        overflow-y: auto;
+        border-radius: 8px;
+      }
+      .table-fixed thead th {
+        position: sticky;
+        top: 0;
+        background-color: #f8f9fa;
+        z-index: 1;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.85rem;
+        letter-spacing: 0.5px;
+        color: #6c757d;
+      }
+      .table tbody tr {
+        vertical-align: middle;
+      }
+
+      .search-box {
+        position: relative;
+        max-width: 400px;
+      }
+      .search-box i {
+        position: absolute;
+        left: 16px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #adb5bd;
+      }
+      .search-box input {
+        padding-left: 45px;
+        border-radius: 30px;
+        border: 1px solid #dee2e6;
+        box-shadow: none;
+        transition: border-color 0.3s;
+      }
+      .search-box input:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.1);
+      }
+
+      .btn {
+        border-radius: 8px;
+        font-weight: 500;
+      }
+      
+      .btn-action {
+        width: 35px;
+        height: 35px;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        transition: 0.2s;
+      }
+      .btn-action:hover {
+        transform: scale(1.05);
+      }
+
+      .nav-tabs .nav-link {
+        border: none;
+        color: #6c757d;
+        font-weight: 600;
+        padding: 12px 24px;
+        border-radius: 8px 8px 0 0;
+      }
+      .nav-tabs .nav-link.active {
+        color: var(--primary-color);
+        border-bottom: 3px solid var(--primary-color);
+        background-color: transparent;
+      }
+
+      #qrContainer { margin: 0 auto 20px; display: flex; justify-content: center; }
+      #produtoNomeQr { font-size: 1.2rem; font-weight: 700; color: var(--primary-color); }
+      
+      .swal2-input, .swal2-html-container { font-family: 'Inter', sans-serif; }
+    </style>
+  </head>
+  <body>
+    <!-- Navbar -->
+    <nav id="navbar" class="navbar navbar-dark d-none">
+      <div class="container-fluid px-4">
+        <span class="navbar-brand mb-0 h1 fw-bold">
+          <i class="fas fa-cubes me-2"></i> SCI Analytics
+        </span>
+        <div class="d-flex align-items-center gap-3">
+          <span class="text-white fw-medium">
+            <i class="far fa-user-circle me-1"></i> <span id="userName">Usuário</span>
+          </span>
+          <button onclick="logout()" class="btn btn-light btn-sm fw-bold text-primary">
+            <i class="fas fa-sign-out-alt"></i> Sair
+          </button>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Tela de Login -->
+    <div id="loginScreen" class="container d-flex align-items-center justify-content-center min-vh-100">
+      <div class="card p-4" style="width: 100%; max-width: 420px">
+        <div class="card-body">
+          <div class="text-center mb-4">
+            <div class="bg-primary bg-opacity-10 rounded-circle d-inline-block p-3 mb-3">
+              <i class="fa-solid fa-chart-line fa-3x text-primary"></i>
+            </div>
+            <h3 class="fw-bold text-dark">Acesso ao Sistema</h3>
+            <p class="text-muted small">Gerencie entradas e saídas do estoque</p>
+          </div>
+          <form id="loginForm">
+            <div class="form-floating mb-3">
+              <input type="text" id="loginInput" class="form-control" placeholder="Informe o login" required />
+              <label for="loginInput">Login de Acesso</label>
+            </div>
+            <div class="form-floating mb-4">
+              <input type="password" id="senhaInput" class="form-control" placeholder="Informe a senha" required />
+              <label for="senhaInput">Senha</label>
+            </div>
+            <button type="submit" class="btn btn-primary btn-lg w-100 shadow-sm">
+              Entrar
+            </button>
+          </form>
+          <div class="text-center mt-4 text-muted small bg-light p-2 rounded">
+            <strong>Demo:</strong> Login: <code>visualizacao</code> • Senha: <code>vis123</code>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tela Principal -->
+    <div id="mainScreen" class="d-none container py-5">
+      <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+        <div>
+          <h2 class="fw-bold text-dark mb-1">Movimentações</h2>
+          <p class="text-muted mb-0">Consulte, edite e exporte os registros do sistema.</p>
+        </div>
+
+        <div class="d-flex gap-2 flex-wrap">
+          <button class="btn btn-light border shadow-sm" onclick="renderizarTabelas()">
+            <i class="fas fa-sync-alt text-primary"></i> Atualizar
+          </button>
+          <div class="dropdown">
+            <button class="btn btn-primary shadow-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
+              <i class="fas fa-file-pdf me-1"></i> Exportar PDF
+            </button>
+            <ul class="dropdown-menu border-0 shadow">
+              <li><a class="dropdown-item" href="#" onclick="gerarPDF('entradas')"><i class="fas fa-arrow-right text-success me-2"></i>Entradas</a></li>
+              <li><a class="dropdown-item" href="#" onclick="gerarPDF('saidas')"><i class="fas fa-arrow-left text-danger me-2"></i>Saídas</a></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Abas -->
+      <ul class="nav nav-tabs mb-4" id="myTab" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link active" id="tabEntradas" data-bs-toggle="tab" data-bs-target="#entradas" type="button" role="tab">
+            <i class="fas fa-arrow-down text-success me-1"></i> Entradas
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="tabSaidas" data-bs-toggle="tab" data-bs-target="#saidas" type="button" role="tab">
+            <i class="fas fa-arrow-up text-danger me-1"></i> Saídas
+          </button>
+        </li>
+      </ul>
+
+      <div class="tab-content">
+        <!-- Aba Entradas -->
+        <div class="tab-pane fade show active" id="entradas" role="tabpanel">
+          <div class="card">
+            <div class="card-body p-0">
+              <div class="p-3 border-bottom d-flex justify-content-between align-items-center bg-white rounded-top">
+                <div class="search-box w-100">
+                  <i class="fas fa-search"></i>
+                  <input id="searchEntradas" class="form-control bg-light" placeholder="Buscar em entradas..." />
+                </div>
+              </div>
+              <div class="table-responsive table-fixed px-3 pb-3">
+                <table class="table table-hover align-middle mb-0">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Produto</th>
+                      <th>Qtde</th>
+                      <th>Data/Hora</th>
+                      <th>Empresa</th>
+                      <th>PO</th>
+                      <th>RI</th>
+                      <th>PY</th>
+                      <th>Nota</th>
+                      <th class="text-center">QR</th>
+                      <th class="text-end">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tabelaEntradas"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Aba Saídas -->
+        <div class="tab-pane fade" id="saidas" role="tabpanel">
+          <div class="card">
+            <div class="card-body p-0">
+              <div class="p-3 border-bottom d-flex justify-content-between align-items-center bg-white rounded-top">
+                <div class="search-box w-100">
+                  <i class="fas fa-search"></i>
+                  <input id="searchSaidas" class="form-control bg-light" placeholder="Buscar em saídas..." />
+                </div>
+              </div>
+              <div class="table-responsive table-fixed px-3 pb-3">
+                <table class="table table-hover align-middle mb-0">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Produto</th>
+                      <th>Qtde</th>
+                      <th>Data/Hora</th>
+                      <th>Região</th>
+                      <th>Estação</th>
+                      <th>Observação</th>
+                      <th class="text-end">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tabelaSaidas"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal QR Code -->
+    <div class="modal fade" id="qrModal" tabindex="-1">
+      <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-0 shadow-lg">
+          <div class="modal-header border-0 pb-0">
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body text-center pt-0">
+            <div id="qrContainer" class="p-3 bg-white rounded shadow-sm d-inline-block"></div>
+            <div id="produtoNomeQr" class="mt-2 text-dark"></div>
+            <p class="text-muted small mt-1">Escaneie para detalhes</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="acesso.js"></script>
+    <script type="module">
+      import { DB } from './bd.js';
+
+      access.initAccess({
+        mainScreenId: 'mainScreen',
+        navbarId: 'navbar',
+        userNameId: 'userName',
+        userDisplayName: 'Mercia',
+        validLogin: 'visualizacao',
+        validSenha: 'vis123',
+        onLogin: renderizarTabelas,
+      });
+
+      async function renderizarTabelas() {
+        const filterEntradas = String(document.getElementById('searchEntradas')?.value || '').trim().toLowerCase();
+        const filterSaidas = String(document.getElementById('searchSaidas')?.value || '').trim().toLowerCase();
+
+        // ---- Renderizar Entradas ----
+        const entradas = (await DB.getEntradas()).reverse();
+        const tbodyE = document.getElementById('tabelaEntradas');
+        tbodyE.innerHTML = '';
+
+        const entradasFiltradas = filterEntradas
+          ? entradas.filter((ent) => String(ent.nome || '').toLowerCase().includes(filterEntradas))
+          : entradas;
+
+        if (entradasFiltradas.length === 0) {
+          tbodyE.innerHTML = `<tr><td colspan="11" class="text-center py-4 text-muted"><i class="fas fa-folder-open mb-2 fs-4"></i><br>Nenhum registro de entrada encontrado.</td></tr>`;
+        } else {
+          entradasFiltradas.forEach((ent) => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td><span class="badge bg-light text-dark border">#${ent.id}</span></td>
+              <td class="fw-medium">${ent.nome}</td>
+              <td><span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2 py-1">${ent.quantidade}</span></td>
+              <td class="text-muted small">${ent.dataHora}</td>
+              <td>${ent.empresa || '-'}</td>
+              <td>${ent.po || '-'}</td>
+              <td>${ent.ri || '-'}</td>
+              <td>${ent.py || '-'}</td>
+              <td>${ent.notaFiscal || '-'}</td>
+              <td class="text-center">
+                <!-- Alterado: Passa somente o ID para buscar limpo do BD sem quebrar strings HTML -->
+                <button class="btn btn-action btn-light border text-dark" onclick="mostrarQR('${ent.id}')" title="Ver QR Code">
+                  <i class="fas fa-qrcode"></i>
+                </button>
+              </td>
+              <td class="text-end">
+                <button class="btn btn-action btn-light border text-primary me-1" onclick="editarEntrada('${ent.id}')" title="Editar">
+                  <i class="fas fa-edit"></i>
+                </button>
+                <button class="btn btn-action btn-light border text-danger" onclick="deletarEntrada('${ent.id}')" title="Excluir">
+                  <i class="fas fa-trash-alt"></i>
+                </button>
+              </td>
+            `;
+            tbodyE.appendChild(tr);
+          });
+        }
+
+        // ---- Renderizar Saídas ----
+        const saidas = (await DB.getSaidas()).reverse();
+        const tbodyS = document.getElementById('tabelaSaidas');
+        tbodyS.innerHTML = '';
+
+        const saidasFiltradas = filterSaidas
+          ? saidas.filter((s) => String(s.nome || '').toLowerCase().includes(filterSaidas))
+          : saidas;
+
+        if (saidasFiltradas.length === 0) {
+          tbodyS.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-muted"><i class="fas fa-folder-open mb-2 fs-4"></i><br>Nenhum registro de saída encontrado.</td></tr>`;
+        } else {
+          saidasFiltradas.forEach((s) => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td><span class="badge bg-light text-dark border">#${s.id}</span></td>
+              <td class="fw-medium">${s.nome}</td>
+              <td><span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 px-2 py-1">${s.quantidade}</span></td>
+              <td class="text-muted small">${s.dataHora}</td>
+              <td>${s.local || '-'}</td>
+              <td>${s.estacao || '-'}</td>
+              <td>${s.obs || '-'}</td>
+              <td class="text-end">
+                <button class="btn btn-action btn-light border text-primary me-1" onclick="editarSaida('${s.id}')" title="Editar">
+                  <i class="fas fa-edit"></i>
+                </button>
+                <button class="btn btn-action btn-light border text-danger" onclick="deletarSaida('${s.id}')" title="Excluir">
+                  <i class="fas fa-trash-alt"></i>
+                </button>
+              </td>
+            `;
+            tbodyS.appendChild(tr);
+          });
+        }
+      }
+
+      async function deletarEntrada(id) {
+        if (!id) return;
+        const result = await Swal.fire({
+          title: 'Excluir Entrada?',
+          text: "Esta ação não pode ser desfeita!",
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonColor: '#dc3545',
+          cancelButtonColor: '#6c757d',
+          confirmButtonText: 'Sim, excluir!',
+          cancelButtonText: 'Cancelar'
+        });
+        if (result.isConfirmed) {
+          await DB.deleteEntrada(id);
+          Swal.fire('Excluído!', 'O registro foi apagado.', 'success');
+          await renderizarTabelas();
+        }
+      }
+
+      async function deletarSaida(id) {
+        if (!id) return;
+        const result = await Swal.fire({
+          title: 'Excluir Saída?',
+          text: "Esta ação não pode ser desfeita!",
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonColor: '#dc3545',
+          cancelButtonColor: '#6c757d',
+          confirmButtonText: 'Sim, excluir!',
+          cancelButtonText: 'Cancelar'
+        });
+        if (result.isConfirmed) {
+          await DB.deleteSaida(id);
+          Swal.fire('Excluído!', 'O registro foi apagado.', 'success');
+          await renderizarTabelas();
+        }
+      }
+
+      // --- FUNÇÃO EDITAR ENTRADA MELHORADA ---
+      async function editarEntrada(id) {
+        const entradas = await DB.getEntradas();
+        const item = entradas.find((e) => e.id === id);
+        if (!item) return;
+
+        const formHtml = `
+          <div class="row text-start" style="font-size: 14px;">
+            <div class="col-md-6 mb-3">
+              <label class="text-muted mb-1 fw-bold">Produto</label>
+              <input id="swal-nome" class="form-control" value="${item.nome || ''}">
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="text-muted mb-1 fw-bold">Quantidade</label>
+              <input id="swal-qtd" type="number" class="form-control" value="${item.quantidade || ''}">
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="text-muted mb-1 fw-bold">Data/Hora</label>
+              <input id="swal-data" type="text" class="form-control" value="${item.dataHora || ''}">
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="text-muted mb-1 fw-bold">Empresa</label>
+              <input id="swal-emp" class="form-control" value="${item.empresa || ''}">
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="text-muted mb-1 fw-bold">PO</label>
+              <input id="swal-po" class="form-control" value="${item.po || ''}">
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="text-muted mb-1 fw-bold">RI</label>
+              <input id="swal-ri" class="form-control" value="${item.ri || ''}">
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="text-muted mb-1 fw-bold">PY</label>
+              <input id="swal-py" class="form-control" value="${item.py || ''}">
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="text-muted mb-1 fw-bold">Nota Fiscal</label>
+              <input id="swal-nota" class="form-control" value="${item.notaFiscal || ''}">
+            </div>
+          </div>
+        `;
+
+        const { value: formValues } = await Swal.fire({
+          title: 'Editar Entrada',
+          html: formHtml,
+          width: '600px',
+          focusConfirm: false,
+          showCancelButton: true,
+          confirmButtonText: '<i class="fas fa-save me-1"></i> Salvar',
+          cancelButtonText: 'Cancelar',
+          preConfirm: () => {
+            return {
+              nome: document.getElementById('swal-nome').value,
+              quantidade: document.getElementById('swal-qtd').value,
+              dataHora: document.getElementById('swal-data').value,
+              empresa: document.getElementById('swal-emp').value,
+              po: document.getElementById('swal-po').value,
+              ri: document.getElementById('swal-ri').value,
+              py: document.getElementById('swal-py').value,
+              notaFiscal: document.getElementById('swal-nota').value,
+            }
+          }
+        });
+
+        if (formValues) {
+          // Constrói os dados do NOVO QR Code baseado nas informações editadas
+          const novoQrData = `ENTRADA|ID:${id}|COD:${item.codigo || ''}|PROD:${formValues.nome}|EMP:${formValues.empresa}|QT:${formValues.quantidade}|NF:${formValues.notaFiscal}`;
+
+          await DB.updateEntrada(id, {
+            nome: formValues.nome,
+            quantidade: Number(formValues.quantidade) || item.quantidade,
+            dataHora: formValues.dataHora,
+            empresa: formValues.empresa,
+            po: formValues.po,
+            ri: formValues.ri,
+            py: formValues.py,
+            notaFiscal: formValues.notaFiscal,
+            qrData: novoQrData 
+          });
+          
+          Swal.fire({ title: 'Salvo!', text: 'Entrada atualizada com sucesso.', icon: 'success', timer: 1500, showConfirmButton: false });
+          await renderizarTabelas();
+        }
+      }
+
+      async function editarSaida(id) {
+        const saidas = await DB.getSaidas();
+        const item = saidas.find((s) => s.id === id);
+        if (!item) return;
+
+        const { value: formValues } = await Swal.fire({
+          title: 'Editar Saída',
+          html:
+            `<label class="text-start w-100 mb-1 small text-muted">Nome do produto</label>
+             <input id="swal-nome" class="swal2-input m-0 mb-3 w-100" value="${item.nome || ''}">
+             <label class="text-start w-100 mb-1 small text-muted">Região</label>
+             <input id="swal-local" class="swal2-input m-0 mb-3 w-100" value="${item.local || ''}">
+             <label class="text-start w-100 mb-1 small text-muted">Estação</label>
+             <input id="swal-estacao" class="swal2-input m-0 mb-3 w-100" value="${item.estacao || ''}">
+             <label class="text-start w-100 mb-1 small text-muted">Observação</label>
+             <input id="swal-obs" class="swal2-input m-0 mb-3 w-100" value="${item.obs || ''}">
+             <label class="text-start w-100 mb-1 small text-muted">Quantidade</label>
+             <input id="swal-qtd" type="number" class="swal2-input m-0 w-100" value="${item.quantidade}">`,
+          focusConfirm: false,
+          showCancelButton: true,
+          confirmButtonText: 'Salvar',
+          cancelButtonText: 'Cancelar',
+          preConfirm: () => {
+            return {
+              nome: document.getElementById('swal-nome').value,
+              local: document.getElementById('swal-local').value,
+              estacao: document.getElementById('swal-estacao').value,
+              obs: document.getElementById('swal-obs').value,
+              quantidade: document.getElementById('swal-qtd').value
+            }
+          }
+        });
+
+        if (formValues) {
+          await DB.updateSaida(id, {
+            nome: formValues.nome,
+            local: formValues.local,
+            estacao: formValues.estacao,
+            obs: formValues.obs,
+            quantidade: Number(formValues.quantidade) || item.quantidade,
+          });
+          Swal.fire({ title: 'Salvo!', text: 'Saída atualizada com sucesso.', icon: 'success', timer: 1500, showConfirmButton: false });
+          await renderizarTabelas();
+        }
+      }
+
+      // Função reescrita: Consulta o dado exato, impedindo quebra de aspas nas strings
+      async function mostrarQR(id) {
+        const entradas = await DB.getEntradas();
+        const item = entradas.find(e => e.id === id);
+        if (!item) return;
+
+        // Tenta usar o qrData armazenado. Se não existir, monta as informações na hora
+        let qrText = item.qrData || `ENTRADA|ID:${item.id}|COD:${item.codigo || ''}|PROD:${item.nome || ''}|EMP:${item.empresa || ''}|QT:${item.quantidade || 0}|NF:${item.notaFiscal || ''}`;
+
+        const container = document.getElementById('qrContainer');
+        container.innerHTML = '';
+        
+        new QRCode(container, {
+          text: qrText,
+          width: 200,
+          height: 200,
+          colorDark: "#000000",
+          colorLight: "#ffffff",
+          correctLevel: QRCode.CorrectLevel.H,
+        });
+        document.getElementById('produtoNomeQr').textContent = item.nome || 'Produto sem nome';
+        new bootstrap.Modal(document.getElementById('qrModal')).show();
+      }
+
+      document.getElementById('searchEntradas').addEventListener('input', renderizarTabelas);
+      document.getElementById('searchSaidas').addEventListener('input', renderizarTabelas);
+
+      // Expor funções globais
+      window.renderizarTabelas = renderizarTabelas;
+      window.mostrarQR = mostrarQR;
+      window.editarEntrada = editarEntrada;
+      window.deletarEntrada = deletarEntrada;
+      window.editarSaida = editarSaida;
+      window.deletarSaida = deletarSaida;
+
+      window.gerarPDF = async function(tipo) {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+
+        doc.setFontSize(16);
+        doc.setFont("helvetica", "bold");
+        doc.text(tipo === 'entradas' ? 'RELATÓRIO DE ENTRADAS' : 'RELATÓRIO DE SAÍDAS', 15, 20);
+
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.text('Gerado em: ' + new Date().toLocaleString('pt-BR'), 15, 28);
+
+        let dados = [];
+        let columns = [];
+
+        if (tipo === 'entradas') {
+          columns = ['ID', 'Produto', 'Empresa', 'Qtd', 'Data', 'PO', 'RI', 'PY', 'Nota'];
+          const entradas = await DB.getEntradas();
+          dados = entradas.map(item => [
+            item.id || '-', item.nome, item.empresa || '-', item.quantidade,
+            item.dataHora.split(' ')[0], item.po || '-', item.ri || '-', item.py || '-', item.notaFiscal || '-'
+          ]);
+
+          doc.autoTable({
+            startY: 35, head: [columns], body: dados, theme: 'striped',
+            styles: { fontSize: 8, cellPadding: 3 },
+            headStyles: { fillColor: [13, 110, 253] }
+          });
+        } else {
+          columns = ['ID', 'Produto', 'Qtd', 'Data', 'Região', 'Estação', 'Observação'];
+          const saidas = await DB.getSaidas();
+          dados = saidas.map(item => [
+            item.id || '-', item.nome, item.quantidade, item.dataHora.split(' ')[0], item.local || '-', item.estacao || '-', item.obs || '-'
+          ]);
+
+          doc.autoTable({
+            startY: 35, head: [columns], body: dados, theme: 'striped',
+            styles: { fontSize: 9, cellPadding: 3 },
+            headStyles: { fillColor: [220, 53, 69] }
+          });
+        }
+        doc.save(`relatorio_${tipo}_${new Date().getTime()}.pdf`);
+      }
+    </script>
+  </body>
+</html>
