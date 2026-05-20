@@ -1,0 +1,32 @@
+Quando estiver em dispositivo mobile quero que:
+Dashboard
+Produtos
+Entradas/Saídas
+Direcionamento
+Coleta
+Conferência
+Relatórios
+QR Codes
+Sair fique em um menu hamburguer
+
+
+
+Em Direcionamento > Direcionar Coleta os produtos são incluído manualmente
+Em Coleta > Executar Coleta tem que aparecer um carde para cada lista que vim da ABA Direcionamento, ao clicar no carde com a lista o sistema abre o carde com a solicitação para colocara o nome do coletor ai sim clicar em iniciar coleta quando finalizar clicar no botão finalizar coleta e enviar para a ABA Conferência
+
+Na ABA Conferência o mesmo acontecera a lista vem em um carde ao clicar no carde o sistema solicita o nome do conferente e assim por de ante
+_____________________________________________________________________________________________________________________________________________________________
+
+
+Sistema de armazenamento e coleta de produtos.
+
+Sistema vai ter:
+index.html: para login e resgatar de senha.
+
+cadastropro.html:
+Cadastro de produtos, gerando um qrcod para cada produto, edição de produtos e localização de produtos por nome e por código qrcod, e também tem que ter direcionamento de tarefas de coleta com uma relação de produtos a ser coletados , está lista vai para coleta.html, para dar seguimento.
+
+coleta.html: o sistema realiza a coleta de produtos via qrcod, mostrando o nome do produto e a imagem do produto gerando uma lista de produtos coletado com a quantidade de cada um.
+
+conferente.html:
+O sistema envia a lidar de produtos coletado por nome de em coletor, tem que aparecer um cartão com o nome de em coletor os produtos ao clicar no carde tem o nome do coletador e a lista de todos os produtos para a conferência.
