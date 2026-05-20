@@ -1,0 +1,1296 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CDC Estoque – Controle de Estoque</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="shortcut icon" href="./img/CDC-ESTOQUE.png">
+  <script src="https://cdn.jsdelivr.net/npm/quagga@0.12.1/dist/quagga.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    body {font-family:'Poppins',sans-serif; display:flex; flex-direction:column; min-height:100vh; margin:0;}
+    .custom-shadow{box-shadow:0 10px 15px -3px rgba(0,0,0,.1),0 4px 6px -2px rgba(0,0,0,.05);}
+    .scanner-container {position:relative; width:100%; height:240px; object-fit:cover; overflow:hidden;}
+    .scanner-line {position:absolute; left:0; top:0; width:100%; height:3px; background:yellow; box-shadow:0 0 10px yellow; animation:scan 2.5s linear infinite;}
+    @keyframes scan {
+      0% { transform: translateY(0); }
+      50% { transform: translateY(237px); }
+      100% { transform: translateY(0); }
+    }
+    #scanner video, #scanner canvas {width:100%; height:100%; object-fit:cover;}
+    .hidden{display:none;}
+    .nav-active{background:#fff !important; color:#1d4ed8 !important;}
+    main{flex:1;}
+    footer{margin-top:auto; width:100%;}
+    .login-container {min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(to bottom right, #f8fafc, #e2e8f0);}
+    .qr-printable { page-break-inside: avoid; margin: 10px; text-align: center; display: inline-block; vertical-align: top; }
+    .cursor-zoom-in { cursor: zoom-in; }
+    @media print {
+      body * { visibility: hidden; }
+      #qrCodeList, #qrCodeList * { visibility: visible; }
+      #qrCodeList { position: absolute; left: 0; top: 0; width: 100%; }
+      .nav-btn, header, footer, button, h2 { display: none !important; }
+      .qr-printable { width: 48%; }
+    }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-slate-50 to-slate-100 min-h-screen flex flex-col">
+
+<!-- TELA DE LOGIN -->
+<div id="loginScreen" class="login-container w-full">
+  <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md">
+    <div class="flex justify-center mb-6">
+      <img src="./img/CDC-ESTOQUE.png" alt="Logo" class="w-25 h-25 rounded-lg">
+    </div>
+    <h2 class="text-2xl font-bold text-center mb-6 text-gray-800" data-translate="loginTitle">Login</h2>
+    <form id="loginForm" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1" data-translate="loginUserLabel">Usuário</label>
+        <input type="text" id="loginUser" class="w-full border border-gray-300 rounded-lg px-3 py-2" data-translate-placeholder="loginUserPlaceholder" required>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1" data-translate="loginPassLabel">Senha</label>
+        <input type="password" id="loginPass" class="w-full border border-gray-300 rounded-lg px-3 py-2" data-translate-placeholder="loginPassPlaceholder" required>
+      </div>
+      <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg" data-translate="loginEnterBtn">Entrar</button>
+    </form>
+  </div>
+</div>
+
+<!-- CONTEÚDO PRINCIPAL -->
+<div id="mainApp" class="flex-1 max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 w-full hidden">
+  <div class="bg-white rounded-2xl custom-shadow overflow-hidden">
+
+    <!-- Header -->
+    <header class="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6">
+      <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
+        <div class="flex items-center gap-3">
+          <img src="./img/CDC-ESTOQUE.png" alt="Logo" class="w-20 h-20 rounded-lg">
+          <h1 class="text-2xl font-bold">CDC Estoque</h1>
+        </div>
+        <div class="flex items-center gap-4">
+          <div class="relative">
+            <select id="languageSelector" class="bg-white/20 text-white rounded-lg px-3 py-2 text-sm appearance-none cursor-pointer focus:outline-none">
+              <option value="pt" class="text-black">Português</option>
+              <option value="en" class="text-black">English</option>
+              <option value="zh" class="text-black">中文 (简体)</option>
+            </select>
+          </div>
+          <nav class="flex gap-2 flex-wrap">
+            <button data-page="dashboard" class="nav-btn px-4 py-2 bg-white text-blue-700 rounded-lg font-semibold text-sm" data-translate="navDashboard">Dashboard</button>
+            <button data-page="produtos" class="nav-btn px-4 py-2 hover:bg-white/20 rounded-lg font-medium text-sm" data-translate="navProducts">Produtos</button>
+            <button data-page="movimentacoes" class="nav-btn px-4 py-2 hover:bg-white/20 rounded-lg font-medium text-sm" data-translate="navMovements">Entradas/Saídas</button>
+            <button data-page="direcionamento" class="nav-btn px-4 py-2 hover:bg-white/20 rounded-lg font-medium text-sm" data-translate="navDispatch">Direcionamento</button>
+            <button data-page="coleta" class="nav-btn px-4 py-2 hover:bg-white/20 rounded-lg font-medium text-sm" data-translate="navCollect">Coleta</button>
+            <button data-page="conferencia" class="nav-btn px-4 py-2 hover:bg-white/20 rounded-lg font-medium text-sm" data-translate="navVerify">Conferência</button>
+            <button data-page="relatorios" class="nav-btn px-4 py-2 hover:bg-white/20 rounded-lg font-medium text-sm" data-translate="navReports">Relatórios</button>
+            <button data-page="qrcodes" class="nav-btn px-4 py-2 hover:bg-white/20 rounded-lg font-medium text-sm" data-translate="navQRCodes">QR Codes</button>
+          </nav>
+          <button id="logoutBtn" class="text-sm text-white hover:underline" data-translate="logoutBtn">Sair</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main -->
+    <main class="p-6">
+
+      <!-- Dashboard -->
+      <section id="dashboard" class="page-section">
+        <h2 class="text-3xl font-bold text-gray-800 mb-6" data-translate="dashboardTitle">Dashboard</h2>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="bg-white p-6 rounded-xl border">
+            <h3 class="text-lg font-semibold mb-4" data-translate="dashboardChartTitle">Entradas x Saídas (Mensal)</h3>
+            <canvas id="chartMov"></canvas>
+          </div>
+          <div class="bg-white p-6 rounded-xl border">
+            <h3 class="text-lg font-semibold mb-4" data-translate="dashboardLowStockTitle">Produtos com Baixo Estoque</h3>
+            <div id="lowStockList" class="space-y-2"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Produtos -->
+      <section id="produtos" class="page-section hidden">
+        <div id="userInfo" class="mb-4 text-lg text-gray-700"></div>
+        <div class="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+          <h2 class="text-2xl font-bold" data-translate="productsTitle">Lista de Produtos</h2>
+          <div class="flex gap-3 flex-wrap">
+            <button id="openAddModal" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-lg flex items-center gap-2 text-sm">
+              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"/></svg>
+              <span data-translate="productsNewBtn">Novo Produto</span>
+            </button>
+            <button id="openSaidaModal" class="bg-red-600 hover:bg-red-700 text-white font-semibold px-4 py-2 rounded-lg flex items-center gap-2 text-sm">
+              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5 10a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1z" clip-rule="evenodd" /></svg>
+              <span data-translate="productsExitBtn">Saída de Produto</span>
+            </button>
+            <button id="openScanner" class="bg-green-600 hover:bg-green-700 text-white font-semibold px-4 py-2 rounded-lg flex items-center gap-2 text-sm">
+              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"/></svg>
+              <span data-translate="productsScanBtn">Escanear</span>
+            </button>
+          </div>
+        </div>
+        <div class="mb-6">
+          <label for="productSearchInput" class="sr-only" data-translate="productsSearchLabel">Pesquisar Produtos</label>
+          <input type="search" id="productSearchInput" class="w-full max-w-lg border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-blue-500 focus:border-blue-500" data-translate-placeholder="productsSearchPlaceholder">
+        </div>
+        <div id="productListFull" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+      </section>
+
+      <!-- Movimentações -->
+      <section id="movimentacoes" class="page-section hidden">
+        <h2 class="text-2xl font-bold mb-4" data-translate="movementsTitle">Entradas / Saídas</h2>
+        <div class="mb-4">
+            <label for="movimentacaoSearchInput" class="sr-only" data-translate="movementsSearchLabel">Pesquisar por nome do produto</label>
+            <input type="search" id="movimentacaoSearchInput" class="w-full max-w-lg border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-blue-500 focus:border-blue-500" data-translate-placeholder="movementsSearchPlaceholder">
+        </div>
+        <div class="flex flex-wrap gap-3 mb-6">
+          <select id="filterTipo" class="border rounded-lg px-3 py-2 text-sm">
+            <option value="" data-translate="filterAll">Todas</option>
+            <option value="entrada" data-translate="filterEntries">Entradas</option>
+            <option value="saida" data-translate="filterExits">Saídas</option>
+          </select>
+          <input type="date" id="filterDataInicio" class="border rounded-lg px-3 py-2 text-sm">
+          <input type="date" id="filterDataFim" class="border rounded-lg px-3 py-2 text-sm">
+          <button id="applyFilter" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm" data-translate="filterApplyBtn">Filtrar</button>
+          <button id="clearFilter" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm" data-translate="filterClearBtn">Limpar</button>
+        </div>
+        <div id="movimentacoesList" class="space-y-3"></div>
+      </section>
+
+      <!-- Direcionamento de Coleta -->
+      <section id="direcionamento" class="page-section hidden">
+        <h2 class="text-2xl font-bold mb-6" data-translate="dispatchTitle">Direcionar Coleta</h2>
+        <div class="bg-white p-6 rounded-xl border mb-6">
+          <h3 class="font-semibold mb-4" data-translate="dispatchSubtitle">Selecione os produtos para coleta:</h3>
+          <div id="dispatchProductList" class="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-96 overflow-y-auto mb-6 p-2"></div>
+          <div class="flex justify-end">
+            <button id="btnConfirmDispatch" class="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold" data-translate="dispatchConfirmBtn">Gerar Tarefa de Coleta</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Aba de Coleta -->
+      <section id="coleta" class="page-section hidden">
+        <div class="flex justify-between items-center mb-6">
+          <h2 class="text-2xl font-bold" data-translate="collectTitle">Executar Coleta</h2>
+          <button id="btnFinishCollection" class="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-bold" data-translate="collectFinishBtn">Finalizar Coleta</button>
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div class="lg:col-span-1 bg-white p-6 rounded-xl border">
+            <h3 class="font-semibold mb-4" data-translate="collectScannerTitle">Escanear Produto (PDA)</h3>
+            <input type="text" id="collectPdaInput" class="w-full border border-gray-300 rounded-lg px-3 py-2 mb-4 focus:ring-blue-500" data-translate-placeholder="scannerInputPlaceholder">
+            <div id="collectCurrentItem" class="hidden border-t pt-4 text-center">
+              <img id="collectImg" src="" class="w-32 h-32 object-cover mx-auto rounded-lg mb-2">
+              <p id="collectName" class="font-bold text-gray-800"></p>
+              <p id="collectCod" class="text-xs text-gray-500 mb-2"></p>
+              <div class="flex items-center justify-center gap-2">
+                <span data-translate="formQuantity">Quantidade</span>: 
+                <input type="number" id="collectQtyInput" value="1" min="1" class="w-16 border rounded px-2">
+                <button id="btnAddCollected" class="bg-blue-600 text-white px-3 py-1 rounded">+</button>
+              </div>
+            </div>
+          </div>
+          <div class="lg:col-span-2 bg-white p-6 rounded-xl border">
+            <h3 class="font-semibold mb-4" data-translate="collectListTitle">Itens Coletados</h3>
+            <div id="collectedList" class="space-y-2"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Aba Conferência -->
+      <section id="conferencia" class="page-section hidden">
+        <h2 class="text-2xl font-bold mb-6" data-translate="verifyTitle">Conferência de Coletas</h2>
+        <div id="conferenciaCards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+      </section>
+
+      <!-- Relatórios -->
+      <section id="relatorios" class="page-section hidden">
+        <h2 class="text-2xl font-bold mb-6" data-translate="reportsTitle">Relatórios</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <button id="gerarMovPDF" class="bg-gradient-to-r from-green-500 to-green-600 text-white p-6 rounded-xl font-semibold text-lg hover:shadow-lg transition flex items-center justify-center gap-3">
+            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path d="M10.75 2.75a.75.75 0 00-1.5 0v8.614L6.295 8.235a.75.75 0 10-1.09 1.03l4.25 4.5a.75.75 0 001.09 0l4.25-4.5a.75.75 0 00-1.09-1.03l-2.955 3.129V2.75z"/><path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z"/></svg>
+            <span data-translate="reportsMovBtn">Relatório de Movimentações</span>
+          </button>
+          <button id="gerarEstoquePDF" class="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-6 rounded-xl font-semibold text-lg hover:shadow-lg transition flex items-center justify-center gap-3">
+            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path d="M7 3.5A1.5 1.5 0 018.5 2h3A1.5 1.5 0 0113 3.5v1.586a2 2 0 01.586 1.414l.828 4.143a.5.5 0 01-.483.557H6.07a.5.5 0 01-.483-.557l.828-4.143a2 2 0 01.586-1.414V3.5z"/><path d="M4 11.5A1.5 1.5 0 015.5 10h9a1.5 1.5 0 011.5 1.5v1.25a.75.75 0 00-1.5 0V12h-12v-.75a.75.75 0 00-1.5 0V11.5zM5.5 14a.5.5 0 00-.5.5v2.5a.5.5 0 001 0V14.5a.5.5 0 00-.5-.5zM8.5 14a.5.5 0 00-.5.5v2.5a.5.5 0 001 0V14.5a.5.5 0 00-.5-.5zm5.5-.5a.5.5 0 01.5.5v2.5a.5.5 0 01-1 0V14.5a.5.5 0 01.5-.5z"/></svg>
+            <span data-translate="reportsStockBtn">Relatório de Estoque Atual</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- QR Codes -->
+      <section id="qrcodes" class="page-section hidden">
+        <h2 class="text-2xl font-bold mb-6" data-translate="qrCodesTitle">Gerar QR Codes</h2>
+        <button id="generateQRCodes" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-3 rounded-lg mb-6" data-translate="qrCodesPrintBtn">Imprimir QR Codes</button>
+        <div id="qrCodeList" class="grid grid-cols-2 gap-6"></div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<!-- Modal Conferência Detalhada -->
+<div id="verifyDetailModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50 p-4">
+  <div class="bg-white rounded-xl p-6 w-full max-w-lg max-h-screen overflow-y-auto">
+    <h3 class="text-xl font-bold mb-2" id="verifyDetailCollector"></h3>
+    <p class="text-sm text-gray-500 mb-4" id="verifyDetailDate"></p>
+    <div id="verifyDetailList" class="space-y-2 border-t pt-4"></div>
+    <div class="flex justify-end mt-6">
+      <button id="closeVerifyModal" class="px-4 py-2 bg-blue-600 text-white rounded-lg">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- RODAPÉ -->
+<footer class="text-center text-xs text-gray-500 py-4 px-6 bg-white border-t w-full">
+  <p data-translate="footerRights">© 2025 Sistema de Controle de Estoque CDC. Todos os direitos reservados.</p>
+  <p><span data-translate="footerDevelopedBy">Desenvolvido por</span> <a href="mailto:ericlm.evo@gmail.com" class="text-blue-600 hover:underline">ERICLM.EVO</a></p>
+</footer>
+
+<!-- Modal Image Zoom -->
+<div id="imageZoomModal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center hidden z-[60] p-4">
+  <div class="relative max-w-4xl max-h-[90vh]">
+    <img id="zoomedImage" src="" alt="Imagem ampliada do produto" class="max-w-full max-h-full object-contain rounded-lg">
+    <button id="closeZoomModal" class="absolute top-2 right-2 bg-white rounded-full p-2 text-gray-800 hover:bg-gray-200">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+    </button>
+  </div>
+</div>
+
+<!-- Modal Cadastro -->
+<div id="addModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50 p-4">
+  <div class="bg-white rounded-xl p-6 w-full max-w-lg max-h-screen overflow-y-auto">
+    <h3 class="text-xl font-bold mb-4" data-translate="addModalTitle">Cadastrar Novo Produto</h3>
+    <form id="productForm">
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-1" data-translate="formName">Nome</label>
+        <input type="text" id="nome" required class="w-full border border-gray-300 rounded-lg px-3 py-2">
+      </div>
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-1">COD</label>
+        <input type="text" id="cod" readonly class="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-100">
+      </div>
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-1" data-translate="formInitialQty">Quantidade Inicial</label>
+        <input type="number" id="quantidade" value="0" required class="w-full border border-gray-300 rounded-lg px-3 py-2">
+      </div>
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-1" data-translate="formPhoto">Foto</label>
+        <div class="flex flex-col items-center">
+          <video id="camera" class="w-full h-48 bg-gray-100 rounded-lg object-cover hidden" autoplay playsinline></video>
+          <canvas id="canvas" class="hidden"></canvas>
+          <img id="photoPreview" class="w-full h-48 object-cover rounded-lg hidden">
+          <div class="flex gap-2 mt-2">
+            <button type="button" id="startCamera" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm" data-translate="formActivateCam">Ativar Câmera</button>
+            <button type="button" id="takePhoto" class="bg-green-600 text-white px-4 py-2 rounded-lg text-sm hidden" data-translate="formTakePhoto">Tirar Foto</button>
+          </div>
+        </div>
+      </div>
+      <div class="flex justify-end gap-3 mt-6">
+        <button type="button" id="closeModal" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700" data-translate="formCancel">Cancelar</button>
+        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg" data-translate="formSave">Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal Edição -->
+<div id="editModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50 p-4">
+  <div class="bg-white rounded-xl p-6 w-full max-w-lg max-h-screen overflow-y-auto">
+    <h3 class="text-xl font-bold mb-4" data-translate="editModalTitle">Editar Produto</h3>
+    <form id="editProductForm">
+      <input type="hidden" id="editId">
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-1" data-translate="formName">Nome</label>
+        <input type="text" id="editNome" required class="w-full border border-gray-300 rounded-lg px-3 py-2">
+      </div>
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-1">COD</label>
+        <input type="text" id="editCod" readonly class="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-100">
+      </div>
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-1" data-translate="formQuantity">Quantidade</label>
+        <input type="number" id="editQuantidade" required class="w-full border border-gray-300 rounded-lg px-3 py-2">
+      </div>
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-1" data-translate="formPhoto">Foto</label>
+        <div class="flex flex-col items-center">
+          <video id="editCamera" class="w-full h-48 bg-gray-100 rounded-lg object-cover hidden" autoplay playsinline></video>
+          <canvas id="editCanvas" class="hidden"></canvas>
+          <img id="editPhotoPreview" class="w-full h-48 object-cover rounded-lg">
+          <div class="flex gap-2 mt-2">
+            <button type="button" id="editStartCamera" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm" data-translate="formActivateCam">Ativar Câmera</button>
+            <button type="button" id="editTakePhoto" class="bg-green-600 text-white px-4 py-2 rounded-lg text-sm hidden" data-translate="formTakePhoto">Tirar Foto</button>
+          </div>
+        </div>
+      </div>
+      <div class="flex justify-between gap-3 mt-6">
+        <button type="button" id="deleteProduct" class="px-4 py-2 bg-red-600 text-white rounded-lg hidden" data-translate="formDelete">Excluir</button>
+        <div class="flex gap-3">
+          <button type="button" id="closeEditModal" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700" data-translate="formCancel">Cancelar</button>
+          <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg" data-translate="formSave">Salvar</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal Saída de Produto -->
+<div id="saidaModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50 p-4">
+  <div class="bg-white rounded-xl p-6 w-full max-w-lg">
+    <h3 class="text-xl font-bold mb-4" data-translate="exitModalTitle">Registrar Saída de Produto</h3>
+    <form id="saidaForm">
+      <div class="mb-4">
+        <label for="saidaProdutoSelect" class="block text-sm font-medium text-gray-700 mb-1" data-translate="exitModalProductLabel">Produto</label>
+        <select id="saidaProdutoSelect" required class="w-full border border-gray-300 rounded-lg px-3 py-2"></select>
+      </div>
+      <div class="mb-4">
+        <label for="saidaQuantidade" class="block text-sm font-medium text-gray-700 mb-1" data-translate="formQuantity">Quantidade</label>
+        <input type="number" id="saidaQuantidade" min="1" required class="w-full border border-gray-300 rounded-lg px-3 py-2">
+      </div>
+      <div class="mb-4">
+        <label for="saidaSetor" class="block text-sm font-medium text-gray-700 mb-1" data-translate="exitModalSectorLabel">Setor de Destino</label>
+        <input type="text" id="saidaSetor" required class="w-full border border-gray-300 rounded-lg px-3 py-2" data-translate-placeholder="exitModalSectorPlaceholder">
+      </div>
+      <div class="flex justify-end gap-3 mt-6">
+        <button type="button" id="closeSaidaModal" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700" data-translate="formCancel">Cancelar</button>
+        <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-lg" data-translate="exitModalConfirmBtn">Confirmar Saída</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal Scanner -->
+<div id="scannerModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50 p-4">
+  <div class="bg-white rounded-xl p-6 w-full max-w-md">
+    <h3 class="text-xl font-bold mb-4" data-translate="scannerModalTitle">Localizar Produto via PDA</h3>
+    <div class="mb-4">
+      <label for="scannerInput" class="block text-sm font-medium text-gray-700 mb-2" data-translate="scannerInputLabel">Código do Produto</label>
+      <input type="text" id="scannerInput" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Aponte o leitor PDA aqui..." data-translate-placeholder="scannerInputPlaceholder">
+    </div>
+    <p id="scanResult" class="text-sm text-gray-600 text-center mb-4" data-translate="scannerAwaiting">Aguardando leitura…</p>
+    <div class="flex justify-center">
+      <button id="closeScanner" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700" data-translate="scannerCloseBtn">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- IMPORTA CONFIGURAÇÃO DE ACESSO -->
+<script type="module" src="./info.js"></script>
+
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.0/firebase-app.js';
+  import { getDatabase, ref, push, update, remove, onValue, get, query, orderByChild, equalTo, set } from 'https://www.gstatic.com/firebasejs/10.14.0/firebase-database.js';
+  import ACCESS_CONFIG from './info.js';
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCPoCn98zQYHhsQp7oYyYC3p6pejLyCKdk",
+  authDomain: "tough-messenger-467220-h2.firebaseapp.com",
+  databaseURL: "https://tough-messenger-467220-h2-default-rtdb.firebaseio.com",
+  projectId: "tough-messenger-467220-h2",
+  storageBucket: "tough-messenger-467220-h2.firebasestorage.app",
+  messagingSenderId: "797984737364",
+  appId: "1:797984737364:web:7c9cf10ca4169e581f45c1"
+};
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+  const produtosRef = ref(db, 'produtos');
+  const movRef = ref(db, 'movimentacoes');
+  const tarefasRef = ref(db, 'tarefas_coleta');
+  const coletasFinRef = ref(db, 'coletas_finalizadas');
+
+  // =============== TRADUÇÃO (i18n) ===============
+  const translations = {
+    pt: {
+      loginTitle: "Login", loginUserLabel: "Usuário", loginUserPlaceholder: "Nome do Usuário", loginPassLabel: "Senha", loginPassPlaceholder: "Senha do usuário", loginEnterBtn: "Entrar",
+      navDashboard: "Dashboard", navProducts: "Produtos", navMovements: "Entradas/Saídas", navReports: "Relatórios", navQRCodes: "QR Codes", logoutBtn: "Sair",
+      navDispatch: "Direcionamento", navCollect: "Coleta", navVerify: "Conferência",
+      dispatchTitle: "Direcionar Coleta", dispatchSubtitle: "Selecione os produtos para coleta:", dispatchConfirmBtn: "Gerar Tarefa de Coleta", alertDispatchSuccess: "Tarefa de coleta enviada com sucesso!",
+      collectTitle: "Executar Coleta", collectScannerTitle: "Escanear Produto (PDA)", collectListTitle: "Itens Coletados", collectFinishBtn: "Finalizar Coleta", alertCollectSuccess: "Coleta finalizada e enviada para conferência!",
+      verifyTitle: "Conferência de Coletas", verifyNoData: "Nenhuma coleta para conferir.",
+      dashboardTitle: "Dashboard", dashboardChartTitle: "Entradas x Saídas (Mensal)", chartLabelEntries: "Entradas", chartLabelExits: "Saídas", monthNames: ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'], dashboardLowStockTitle: "Produtos com Baixo Estoque",
+      productsTitle: "Lista de Produtos", productsNewBtn: "Novo Produto", productsExitBtn: "Saída de Produto", productsScanBtn: "Localizar via PDA", productsSearchLabel: "Pesquisar Produtos", productsSearchPlaceholder: "Pesquisar por nome ou COD...",
+      movementsTitle: "Entradas / Saídas", movementsSearchLabel: "Pesquisar por nome do produto", movementsSearchPlaceholder: "Pesquisar por nome do produto...", filterAll: "Todas", filterEntries: "Entradas", filterExits: "Saídas", filterApplyBtn: "Filtrar", filterClearBtn: "Limpar",
+      reportsTitle: "Relatórios", reportsMovBtn: "Relatório de Movimentações", reportsStockBtn: "Relatório de Estoque Atual",
+      qrCodesTitle: "Gerar QR Codes", qrCodesPrintBtn: "Imprimir QR Codes",
+      footerRights: "© 2025 Sistema de Controle de Estoque CDC. Todos os direitos reservados.", footerDevelopedBy: "Desenvolvido por",
+      addModalTitle: "Cadastrar Novo Produto", formName: "Nome", formInitialQty: "Quantidade Inicial", formPhoto: "Foto", formActivateCam: "Ativar Câmera", formTakePhoto: "Tirar Foto", formCancel: "Cancelar", formSave: "Salvar",
+      editModalTitle: "Editar Produto", formQuantity: "Quantidade", formDelete: "Excluir",
+      exitModalTitle: "Registrar Saída de Produto", exitModalProductLabel: "Produto", exitModalSectorLabel: "Setor de Destino", exitModalSectorPlaceholder: "Ex: Produção, Administrativo", exitModalConfirmBtn: "Confirmar Saída",
+      scannerModalTitle: "Localizar Produto via PDA", scannerInputLabel: "Código do Produto", scannerInputPlaceholder: "Aponte o leitor PDA aqui...", scannerAwaiting: "Aguardando leitura…", scannerCloseBtn: "Fechar", scannerCodeDetected: "Código Detectado", scannerLocating: "Localizando produto...",
+      alertAccessDenied: "Acesso negado: Apenas administradores e operadores podem realizar esta ação.", alertSaveSuccess: "Produto salvo com sucesso!", alertUpdateSuccess: "Produto atualizado!", alertDeleteSuccess: "Produto excluído!", alertExitSuccess: "Saída registrada com sucesso!", alertEntrySuccess: "Entrada registrada com sucesso!", alertProductNotFound: "Produto não encontrado com o código fornecido.", alertInsufficientStock: "Estoque insuficiente.", alertFillAllFields: "Preencha todos os campos corretamente.", alertConfirmDelete: "Deseja realmente excluir este produto?",
+      renderEditBtn: "Editar", renderNoProducts: "Nenhum produto encontrado.", renderLoadingMovements: "Carregando movimentações...", renderErrorMovements: "Ocorreu um erro ao carregar os dados.", renderNoMovements: "Nenhuma movimentação encontrada para os filtros aplicados.", selectProductPlaceholder: "Selecione um produto...",
+      userInfoGreeting: "Bem-vindo(a)",
+    },
+    en: {
+      loginTitle: "Login", loginUserLabel: "User", loginUserPlaceholder: "Username", loginPassLabel: "Password", loginPassPlaceholder: "User password", loginEnterBtn: "Enter",
+      navDashboard: "Dashboard", navProducts: "Products", navMovements: "Entries/Exits", navReports: "Reports", navQRCodes: "QR Codes", logoutBtn: "Logout",
+      navDispatch: "Dispatch", navCollect: "Collect", navVerify: "Verify",
+      dispatchTitle: "Dispatch Collection", dispatchSubtitle: "Select products for collection:", dispatchConfirmBtn: "Generate Collection Task", alertDispatchSuccess: "Collection task dispatched!",
+      collectTitle: "Execute Collection", collectScannerTitle: "Scan Product (PDA)", collectListTitle: "Collected Items", collectFinishBtn: "Finish Collection", alertCollectSuccess: "Collection finished and sent for verification!",
+      verifyTitle: "Collection Verification", verifyNoData: "No collections to verify.",
+      dashboardTitle: "Dashboard", dashboardChartTitle: "Entries vs Exits (Monthly)", chartLabelEntries: "Entries", chartLabelExits: "Exits", monthNames: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'], dashboardLowStockTitle: "Low Stock Products",
+      productsTitle: "Product List", productsNewBtn: "New Product", productsExitBtn: "Product Exit", productsScanBtn: "Locate via PDA", productsSearchLabel: "Search Products", productsSearchPlaceholder: "Search by name or COD...",
+      movementsTitle: "Entries / Exits", movementsSearchLabel: "Search by product name", movementsSearchPlaceholder: "Search by product name...", filterAll: "All", filterEntries: "Entries", filterExits: "Exits", filterApplyBtn: "Filter", filterClearBtn: "Clear",
+      reportsTitle: "Reports", reportsMovBtn: "Movements Report", reportsStockBtn: "Current Stock Report",
+      qrCodesTitle: "Generate QR Codes", qrCodesPrintBtn: "Print QR Codes",
+      footerRights: "© 2025 CDC Inventory Control System. All rights reserved.", footerDevelopedBy: "Developed by",
+      addModalTitle: "Register New Product", formName: "Name", formInitialQty: "Initial Quantity", formPhoto: "Photo", formActivateCam: "Activate Camera", formTakePhoto: "Take Photo", formCancel: "Cancel", formSave: "Save",
+      editModalTitle: "Edit Product", formQuantity: "Quantity", formDelete: "Delete",
+      exitModalTitle: "Register Product Exit", exitModalProductLabel: "Product", exitModalSectorLabel: "Destination Sector", exitModalSectorPlaceholder: "E.g.: Production, Administrative", exitModalConfirmBtn: "Confirm Exit",
+      scannerModalTitle: "Locate Product via PDA", scannerInputLabel: "Product Code", scannerInputPlaceholder: "Point PDA reader here...", scannerAwaiting: "Awaiting scan…", scannerCloseBtn: "Close", scannerCodeDetected: "Code Detected", scannerLocating: "Locating product...",
+      alertAccessDenied: "Access denied: Only administrators and operators can perform this action.", alertSaveSuccess: "Product saved successfully!", alertUpdateSuccess: "Product updated!", alertDeleteSuccess: "Product deleted!", alertExitSuccess: "Exit registered successfully!", alertEntrySuccess: "Entry registered successfully!", alertProductNotFound: "Product not found with the provided code.", alertInsufficientStock: "Insufficient stock.", alertFillAllFields: "Please fill all fields correctly.", alertConfirmDelete: "Do you really want to delete this product?",
+      renderEditBtn: "Edit", renderNoProducts: "No products found.", renderLoadingMovements: "Loading movements...", renderErrorMovements: "An error occurred while loading data.", renderNoMovements: "No movements found for the applied filters.", selectProductPlaceholder: "Select a product...",
+      userInfoGreeting: "Welcome",
+    },
+    zh: {
+      loginTitle: "登录", loginUserLabel: "用户", loginUserPlaceholder: "用户名", loginPassLabel: "密码", loginPassPlaceholder: "用户密码", loginEnterBtn: "进入",
+      navDashboard: "仪表板", navProducts: "产品", navMovements: "出入库", navReports: "报告", navQRCodes: "二维码", logoutBtn: "登出",
+      navDispatch: "调度", navCollect: "采集", navVerify: "校验",
+      dispatchTitle: "采集调度", dispatchSubtitle: "选择要采集的产品：", dispatchConfirmBtn: "生成采集任务", alertDispatchSuccess: "采集任务已派发！",
+      collectTitle: "执行采集", collectScannerTitle: "扫描产品 (PDA)", collectListTitle: "已采集项目", collectFinishBtn: "完成采集", alertCollectSuccess: "采集已完成并送审！",
+      verifyTitle: "采集校验", verifyNoData: "暂无待校验的采集。",
+      dashboardTitle: "仪表板", dashboardChartTitle: "月度出入库对比", chartLabelEntries: "入库", chartLabelExits: "出库", monthNames: ['一月','二月','三月','四月','五月','六月','七月','八月','九月','十月','十一月','十二月'], dashboardLowStockTitle: "低库存产品",
+      productsTitle: "产品列表", productsNewBtn: "新产品", productsExitBtn: "产品出库", productsScanBtn: "通过PDA定位", productsSearchLabel: "搜索产品", productsSearchPlaceholder: "按名称或COD搜索...",
+      movementsTitle: "出入库记录", movementsSearchLabel: "按产品名称搜索", movementsSearchPlaceholder: "按产品名称搜索...", filterAll: "全部", filterEntries: "入库", filterExits: "出库", filterApplyBtn: "筛选", filterClearBtn: "清除",
+      reportsTitle: "报告", reportsMovBtn: "出入库报告", reportsStockBtn: "当前库存报告",
+      qrCodesTitle: "生成二维码", qrCodesPrintBtn: "打印二维码",
+      footerRights: "© 2025 CDC 库存控制系统。版权所有。", footerDevelopedBy: "开发者",
+      addModalTitle: "注册新产品", formName: "名称", formInitialQty: "初始数量", formPhoto: "照片", formActivateCam: "激活摄像头", formTakePhoto: "拍照", formCancel: "取消", formSave: "保存",
+      editModalTitle: "编辑产品", formQuantity: "数量", formDelete: "删除",
+      exitModalTitle: "登记产品出库", exitModalProductLabel: "产品", exitModalSectorLabel: "目标部门", exitModalSectorPlaceholder: "例如：生产部、行政部", exitModalConfirmBtn: "确认出库",
+      scannerModalTitle: "通过PDA定位产品", scannerInputLabel: "产品代码", scannerInputPlaceholder: "将PDA阅读器指向此处...", scannerAwaiting: "等待扫描…", scannerCloseBtn: "关闭", scannerCodeDetected: "已检测到代码", scannerLocating: "正在定位产品...",
+      alertAccessDenied: "访问被拒绝：只有管理员和操作员才能执行此操作。", alertSaveSuccess: "产品保存成功！", alertUpdateSuccess: "产品已更新！", alertDeleteSuccess: "产品已删除！", alertExitSuccess: "出库登记成功！", alertEntrySuccess: "入库登记成功！", alertProductNotFound: "未找到具有所提供代码的产品。", alertInsufficientStock: "库存不足。", alertFillAllFields: "请正确填写所有字段。", alertConfirmDelete: "您确定要删除此产品吗？",
+      renderEditBtn: "编辑", renderNoProducts: "未找到产品。", renderLoadingMovements: "正在加载记录...", renderErrorMovements: "加载数据时发生错误。", renderNoMovements: "未找到符合筛选条件的记录。", selectProductPlaceholder: "选择一个产品...",
+      userInfoGreeting: "欢迎",
+    }
+  };
+
+  let currentLanguage = 'pt';
+
+  function getTranslation(key) {
+    return translations[currentLanguage][key] || key;
+  }
+
+  function translatePage() {
+    document.querySelectorAll('[data-translate]').forEach(el => {
+      const key = el.dataset.translate;
+      el.textContent = getTranslation(key);
+    });
+    document.querySelectorAll('[data-translate-placeholder]').forEach(el => {
+      const key = el.dataset.translatePlaceholder;
+      el.placeholder = getTranslation(key);
+    });
+    updateUserInfo(); // Re-translate user info on language change
+  }
+
+  function setLanguage(lang) {
+    if (translations[lang]) {
+      currentLanguage = lang;
+      localStorage.setItem('cdcLanguage', lang);
+      document.documentElement.lang = lang;
+      document.getElementById('languageSelector').value = lang;
+      translatePage();
+      if (!mainApp.classList.contains('hidden') && !document.getElementById('dashboard').classList.contains('hidden')) {
+        loadDashboard();
+      }
+    }
+  }
+
+  document.getElementById('languageSelector').onchange = (e) => setLanguage(e.target.value);
+
+  // =============== LOGIN & SESSÃO ===============
+  const loginScreen = document.getElementById('loginScreen');
+  const mainApp = document.getElementById('mainApp');
+  let currentUser = null;
+
+  function updateUserInfo() {
+      const userInfoEl = document.getElementById('userInfo');
+      if (currentUser && userInfoEl) {
+        userInfoEl.innerHTML = `${getTranslation('userInfoGreeting')}, <strong class="text-blue-700">${currentUser.username}</strong> <span class="text-sm text-gray-500">(${currentUser.role})</span>`;
+      }
+  }
+
+  document.getElementById('loginForm').onsubmit = e => {
+    e.preventDefault();
+    const user = document.getElementById('loginUser').value.trim();
+    const pass = document.getElementById('loginPass').value;
+    const validUser = ACCESS_CONFIG.users.find(u => u.username === user && u.password === pass);
+    if (validUser) {
+      const session = { username: validUser.username, role: validUser.role, expires: Date.now() + ACCESS_CONFIG.sessionTimeout };
+      localStorage.setItem('cdcSession', JSON.stringify(session));
+      currentUser = session;
+      loginScreen.classList.add('hidden');
+      mainApp.classList.remove('hidden');
+      loadAllData();
+      updateUserInfo();
+    } else {
+      alert(ACCESS_CONFIG.loginErrorMessage);
+    }
+  };
+
+  document.getElementById('logoutBtn').onclick = () => {
+    localStorage.removeItem('cdcSession');
+    location.reload();
+  };
+
+  window.addEventListener('load', () => {
+    const savedLang = localStorage.getItem('cdcLanguage');
+    const browserLang = navigator.language.split('-')[0];
+    const initialLang = savedLang || (['pt', 'en', 'zh'].includes(browserLang) ? browserLang : 'pt');
+    setLanguage(initialLang);
+
+    const session = JSON.parse(localStorage.getItem('cdcSession'));
+    if (session && session.expires > Date.now()) {
+      currentUser = session;
+      loginScreen.classList.add('hidden');
+      mainApp.classList.remove('hidden');
+      loadAllData();
+      updateUserInfo();
+    }
+  });
+
+  // =============== UI NAVEGAÇÃO E DADOS GLOBAIS ===============
+  const pages = document.querySelectorAll('.page-section');
+  const navBtns = document.querySelectorAll('.nav-btn');
+  const productListFull = document.getElementById('productListFull');
+  const movList = document.getElementById('movimentacoesList');
+  const lowStockList = document.getElementById('lowStockList');
+  const qrCodeList = document.getElementById('qrCodeList');
+  let allProducts = {};
+  let allMovements = [];
+  let movementsLoaded = false;
+
+  navBtns.forEach(b => b.addEventListener('click', () => {
+    pages.forEach(s => s.classList.add('hidden'));
+    document.getElementById(b.dataset.page).classList.remove('hidden');
+    navBtns.forEach(nb => nb.classList.remove('nav-active'));
+    b.classList.add('nav-active');
+    if (b.dataset.page === 'dashboard') loadDashboard();
+    if (b.dataset.page === 'movimentacoes' && !movementsLoaded) loadMovements();
+    if (b.dataset.page === 'qrcodes') loadQRCodes();
+    if (b.dataset.page === 'direcionamento') loadDirecionamento();
+    if (b.dataset.page === 'coleta') loadColeta();
+    if (b.dataset.page === 'conferencia') loadConferencia();
+  }));
+
+  // =============== PESQUISA DE PRODUTOS ===============
+  const productSearchInput = document.getElementById('productSearchInput');
+  productSearchInput.addEventListener('input', () => {
+      const searchTerm = productSearchInput.value.toLowerCase().trim();
+      const filteredProducts = Object.fromEntries(
+          Object.entries(allProducts).filter(([id, product]) =>
+              product.nome.toLowerCase().includes(searchTerm) ||
+              product.cod.toLowerCase().includes(searchTerm)
+          )
+      );
+      renderProdutos(productListFull, filteredProducts);
+  });
+
+  // =============== GERAÇÃO DE COD AUTOMÁTICO ===============
+  async function generateUniqueCOD() {
+    const chars = '0123456789';
+    let cod = '';
+    for (let i = 0; i < 20; i++) {
+      cod += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    const q = query(produtosRef, orderByChild('cod'), equalTo(cod));
+    const snap = await get(q);
+    return snap.exists() ? generateUniqueCOD() : cod;
+  }
+
+  // =============== CADASTRO DE PRODUTO ===============
+  const addModal = document.getElementById('addModal');
+  const openAdd = document.getElementById('openAddModal');
+  const closeAdd = document.getElementById('closeModal');
+  const form = document.getElementById('productForm');
+  const video = document.getElementById('camera');
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  const preview = document.getElementById('photoPreview');
+  const startBtn = document.getElementById('startCamera');
+  const takeBtn = document.getElementById('takePhoto');
+  let stream = null;
+  let captured = null;
+
+  openAdd.onclick = async () => {
+    if (currentUser.role === 'admin' || currentUser.role === 'operador') {
+      addModal.classList.remove('hidden');
+      document.getElementById('cod').value = await generateUniqueCOD();
+      startCamera.click();
+    } else {
+      alert(getTranslation('alertAccessDenied'));
+    }
+  };
+  closeAdd.onclick = () => { addModal.classList.add('hidden'); stopCamera(); resetCam(); };
+
+  startBtn.onclick = async () => {
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      video.srcObject = stream;
+      video.play();
+      video.classList.remove('hidden');
+      startBtn.classList.add('hidden');
+      takeBtn.classList.remove('hidden');
+    } catch (e) { alert('Erro ao acessar câmera: ' + e.message); }
+  };
+
+  takeBtn.onclick = () => {
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0);
+    captured = canvas.toDataURL('image/jpeg');
+    preview.src = captured;
+    preview.classList.remove('hidden');
+    video.classList.add('hidden');
+    takeBtn.classList.add('hidden');
+    stopCamera();
+  };
+
+  function stopCamera() { if (stream) stream.getTracks().forEach(t => t.stop()); }
+  function resetCam() {
+    video.classList.add('hidden');
+    preview.classList.add('hidden');
+    startBtn.classList.remove('hidden');
+    takeBtn.classList.add('hidden');
+    captured = null;
+  }
+
+  form.onsubmit = async e => {
+    e.preventDefault();
+    const nome = document.getElementById('nome').value.trim();
+    const cod = document.getElementById('cod').value.trim();
+    const qtd = +document.getElementById('quantidade').value;
+
+    if (!nome || !cod) return alert(getTranslation('alertFillAllFields'));
+    if (qtd < 0) return alert('A quantidade inicial não pode ser negativa.');
+
+    try {
+      const q = query(produtosRef, orderByChild('cod'), equalTo(cod));
+      const snap = await get(q);
+      if (snap.exists()) { return alert('COD já cadastrado!'); }
+
+      await push(produtosRef, { nome, cod, quantidade: qtd, imagem: captured || 'https://via.placeholder.com/150', dataCadastro: new Date().toISOString() });
+
+      if (qtd > 0) {
+        await push(movRef, { cod, nome, tipo: 'entrada', quantidade: qtd, data: new Date().toISOString(), responsavel: currentUser.username, setor: 'Cadastro Inicial' });
+      }
+      alert(getTranslation('alertSaveSuccess'));
+      addModal.classList.add('hidden');
+      form.reset();
+      resetCam();
+    } catch (error) {
+      console.error("Erro ao salvar produto:", error);
+      alert("Ocorreu um erro ao salvar the produto. Tente novamente.");
+    }
+  };
+
+  // =============== EDIÇÃO DE PRODUTO ===============
+  const editModal = document.getElementById('editModal');
+  const closeEdit = document.getElementById('closeEditModal');
+  const editForm = document.getElementById('editProductForm');
+  const editVideo = document.getElementById('editCamera');
+  const editCanvas = document.getElementById('editCanvas');
+  const editCtx = editCanvas.getContext('2d');
+  const editPreview = document.getElementById('editPhotoPreview');
+  const editStartBtn = document.getElementById('editStartCamera');
+  const editTakeBtn = document.getElementById('editTakePhoto');
+  const deleteBtn = document.getElementById('deleteProduct');
+  let editStream = null;
+  let editCaptured = null;
+
+  closeEdit.onclick = () => { editModal.classList.add('hidden'); stopEditCamera(); resetEditCam(); };
+
+  editStartBtn.onclick = async () => {
+    try {
+      editStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      editVideo.srcObject = editStream;
+      editVideo.play();
+      editVideo.classList.remove('hidden'); editStartBtn.classList.add('hidden'); editTakeBtn.classList.remove('hidden');
+    } catch (e) { alert('Erro ao acessar câmera: ' + e.message); }
+  };
+
+  editTakeBtn.onclick = () => {
+    editCanvas.width = editVideo.videoWidth; editCanvas.height = editVideo.videoHeight;
+    editCtx.drawImage(editVideo, 0, 0);
+    editCaptured = editCanvas.toDataURL('image/jpeg');
+    editPreview.src = editCaptured;
+    editPreview.classList.remove('hidden'); editVideo.classList.add('hidden'); editTakeBtn.classList.add('hidden');
+    stopEditCamera();
+  };
+
+  function stopEditCamera() { if (editStream) editStream.getTracks().forEach(t => t.stop()); }
+  function resetEditCam() {
+    editVideo.classList.add('hidden');
+    editStartBtn.classList.remove('hidden'); editTakeBtn.classList.add('hidden');
+    editCaptured = null;
+  }
+
+  editForm.onsubmit = e => {
+    e.preventDefault();
+    const id = document.getElementById('editId').value;
+    const nome = document.getElementById('editNome').value.trim();
+    const cod = document.getElementById('editCod').value.trim();
+    const qtd = +document.getElementById('editQuantidade').value;
+    if (!nome || !cod) return alert(getTranslation('alertFillAllFields'));
+    update(ref(db, `produtos/${id}`), { nome, cod, quantidade: qtd, imagem: editCaptured || editPreview.src, dataAtualizacao: new Date().toISOString() })
+    .then(() => { alert(getTranslation('alertUpdateSuccess')); editModal.classList.add('hidden'); resetEditCam(); });
+  };
+
+  deleteBtn.onclick = () => {
+    if (currentUser.role !== 'admin') return alert(getTranslation('alertAccessDenied'));
+    if (confirm(getTranslation('alertConfirmDelete'))) {
+      const id = document.getElementById('editId').value;
+      remove(ref(db, `produtos/${id}`)).then(() => {
+        alert(getTranslation('alertDeleteSuccess'));
+        editModal.classList.add('hidden'); resetEditCam();
+      });
+    }
+  };
+
+  // =============== RENDER PRODUTOS E INTERAÇÕES ===============
+  function renderProdutos(container, data) {
+    container.innerHTML = '';
+    if (!data || Object.keys(data).length === 0) {
+      container.innerHTML = `<p class="col-span-1 md:col-span-2 lg:col-span-3 text-center text-gray-500">${getTranslation('renderNoProducts')}</p>`;
+      return;
+    }
+    Object.entries(data).forEach(([id, p]) => {
+      const div = document.createElement('div');
+      div.className = 'bg-white border border-gray-200 rounded-xl p-5 hover:shadow-lg transition';
+      div.innerHTML = `
+        <div class="flex justify-between items-start mb-3">
+          <img src="${p.imagem}" alt="${p.nome}" class="product-image w-16 h-16 object-cover rounded-lg cursor-zoom-in">
+          <img src="https://api.qrserver.com/v1/create-qr-code/?size=60x60&data=${p.cod}" class="w-14 h-14">
+        </div>
+        <h3 class="font-semibold text-gray-800">${p.nome}</h3>
+        <p class="text-xs text-gray-500">COD: ${p.cod}</p>
+        <div class="flex justify-between items-center mt-3">
+          <span class="text-2xl font-bold ${p.quantidade < 10 ? 'text-red-600' : 'text-green-600'} ">${p.quantidade}</span>
+          <div class="flex gap-2">
+            <button data-product-id="${id}" class="edit-product-btn bg-blue-100 text-blue-700 p-2 rounded-lg hover:bg-blue-200 transition">${getTranslation('renderEditBtn')}</button>
+          </div>
+        </div>`;
+      container.appendChild(div);
+    });
+  }
+
+  window.editProduct = (id) => {
+    if (currentUser.role !== 'admin' && currentUser.role !== 'operador') {
+      return alert(getTranslation('alertAccessDenied'));
+    }
+    const p = allProducts[id];
+    if (p) {
+      document.getElementById('editId').value = id;
+      document.getElementById('editNome').value = p.nome;
+      document.getElementById('editCod').value = p.cod;
+      document.getElementById('editQuantidade').value = p.quantidade;
+      document.getElementById('editPhotoPreview').src = p.imagem;
+      deleteBtn.classList.toggle('hidden', currentUser.role !== 'admin');
+      editModal.classList.remove('hidden');
+    }
+  };
+
+  productListFull.addEventListener('click', (e) => {
+      const editButton = e.target.closest('.edit-product-btn');
+      if (editButton) {
+          const productId = editButton.dataset.productId;
+          editProduct(productId);
+          return;
+      }
+      if (e.target.classList.contains('product-image')) {
+          const imageUrl = e.target.src;
+          openImageZoom(imageUrl);
+      }
+  });
+
+  function openImageZoom(imageUrl) {
+    document.getElementById('zoomedImage').src = imageUrl;
+    document.getElementById('imageZoomModal').classList.remove('hidden');
+  }
+
+  document.getElementById('imageZoomModal').addEventListener('click', (e) => {
+      if (e.target.id === 'imageZoomModal' || e.target.closest('#closeZoomModal')) {
+          document.getElementById('imageZoomModal').classList.add('hidden');
+      }
+  });
+
+  // =============== MOVIMENTAÇÕES ===============
+  async function loadMovements() {
+    movList.innerHTML = `<p class="text-gray-500">${getTranslation('renderLoadingMovements')}</p>`;
+    try {
+        const snap = await get(movRef);
+        const data = snap.val() || {};
+        allMovements = Object.values(data).sort((a, b) => new Date(b.data) - new Date(a.data));
+        movementsLoaded = true;
+        renderMov(allMovements);
+    } catch (error) {
+        console.error("Erro ao carregar movimentações:", error);
+        movList.innerHTML = `<p class="text-red-500">${getTranslation('renderErrorMovements')}</p>`;
+    }
+  }
+
+  function renderMov(data) {
+    movList.innerHTML = '';
+    if (data.length === 0) {
+        movList.innerHTML = `<p class="text-gray-500">${getTranslation('renderNoMovements')}</p>`;
+        return;
+    }
+    data.forEach(m => {
+        const div = document.createElement('div');
+        div.className = `p-3 rounded-lg border ${m.tipo === 'entrada' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`;
+        let setorInfo = (m.setor) ? (m.tipo === 'saida' ? ` | Setor: ${m.setor}` : ` | Origem: ${m.setor}`) : '';
+        div.innerHTML = `
+            <div class="flex justify-between text-sm">
+                <span class="font-medium">${m.nome} (${m.cod})</span>
+                <span class="${m.tipo === 'entrada' ? 'text-green-700' : 'text-red-700'} font-semibold">${m.tipo === 'entrada' ? '+' : '-'}${m.quantidade}</span>
+            </div>
+            <p class="text-xs text-gray-500">${new Date(m.data).toLocaleString()} | Resp: ${m.responsavel}${setorInfo}</p>`;
+        movList.appendChild(div);
+    });
+  }
+
+  function filterAndRenderMovements() {
+      const tipo = document.getElementById('filterTipo').value;
+      const inicio = document.getElementById('filterDataInicio').value;
+      const fim = document.getElementById('filterDataFim').value;
+      const searchTerm = document.getElementById('movimentacaoSearchInput').value.toLowerCase().trim();
+
+      const filtered = allMovements.filter(m => {
+          const movDate = new Date(m.data);
+          const startDate = inicio ? new Date(inicio) : null;
+          if(startDate) startDate.setHours(0, 0, 0, 0);
+          const endDate = fim ? new Date(fim) : null;
+          if (endDate) endDate.setHours(23, 59, 59, 999);
+
+          const tipoMatch = !tipo || m.tipo === tipo;
+          const inicioMatch = !startDate || movDate >= startDate;
+          const fimMatch = !endDate || movDate <= endDate;
+          const searchMatch = !searchTerm || (m.nome && m.nome.toLowerCase().includes(searchTerm)) || (m.cod && m.cod.toLowerCase().includes(searchTerm));
+
+          return tipoMatch && inicioMatch && fimMatch && searchMatch;
+      });
+      renderMov(filtered);
+  }
+
+  document.getElementById('movimentacaoSearchInput').addEventListener('input', filterAndRenderMovements);
+  document.getElementById('applyFilter').onclick = filterAndRenderMovements;
+  document.getElementById('filterTipo').onchange = filterAndRenderMovements;
+  document.getElementById('filterDataInicio').onchange = filterAndRenderMovements;
+  document.getElementById('filterDataFim').onchange = filterAndRenderMovements;
+
+  document.getElementById('clearFilter').onclick = () => {
+      document.getElementById('filterTipo').value = '';
+      document.getElementById('filterDataInicio').value = '';
+      document.getElementById('filterDataFim').value = '';
+      document.getElementById('movimentacaoSearchInput').value = '';
+      renderMov(allMovements);
+  };
+
+  // =============== NOVO: DIRECIONAMENTO DE COLETA ===============
+  function loadDirecionamento() {
+    const list = document.getElementById('dispatchProductList');
+    list.innerHTML = '';
+    Object.entries(allProducts).forEach(([id, p]) => {
+      const div = document.createElement('div');
+      div.className = "flex items-center justify-between p-3 border rounded-lg bg-slate-50";
+      div.innerHTML = `
+        <div class="flex items-center gap-3">
+          <img src="${p.imagem}" class="w-10 h-10 object-cover rounded">
+          <div>
+            <p class="text-sm font-semibold">${p.nome}</p>
+            <p class="text-xs text-gray-500">COD: ${p.cod}</p>
+          </div>
+        </div>
+        <input type="checkbox" class="dispatch-check w-5 h-5" data-cod="${p.cod}" data-nome="${p.nome}">
+      `;
+      list.appendChild(div);
+    });
+  }
+
+  document.getElementById('btnConfirmDispatch').onclick = async () => {
+    const selected = Array.from(document.querySelectorAll('.dispatch-check:checked')).map(cb => ({
+      cod: cb.dataset.cod,
+      nome: cb.dataset.nome
+    }));
+
+    if (selected.length === 0) return alert(getTranslation('alertFillAllFields'));
+
+    await set(tarefasRef, { 
+      data: new Date().toISOString(), 
+      criadoPor: currentUser.username, 
+      itens: selected 
+    });
+    alert(getTranslation('alertDispatchSuccess'));
+    document.querySelectorAll('.dispatch-check').forEach(cb => cb.checked = false);
+  };
+
+  // =============== NOVO: ABA DE COLETA ===============
+  let collectedItems = [];
+  let currentScannedItem = null;
+
+  function loadColeta() {
+    collectedItems = [];
+    renderCollectedList();
+    document.getElementById('collectCurrentItem').classList.add('hidden');
+    document.getElementById('collectPdaInput').value = '';
+  }
+
+  document.getElementById('collectPdaInput').addEventListener('input', (e) => {
+    const code = e.target.value.trim();
+    if (code) {
+      const product = Object.values(allProducts).find(p => p.cod === code);
+      if (product) {
+        currentScannedItem = product;
+        document.getElementById('collectImg').src = product.imagem;
+        document.getElementById('collectName').textContent = product.nome;
+        document.getElementById('collectCod').textContent = product.cod;
+        document.getElementById('collectQtyInput').value = 1;
+        document.getElementById('collectCurrentItem').classList.remove('hidden');
+        navigator.vibrate && navigator.vibrate(100);
+      }
+      e.target.value = '';
+    }
+  });
+
+  document.getElementById('btnAddCollected').onclick = () => {
+    if (!currentScannedItem) return;
+    const qty = +document.getElementById('collectQtyInput').value;
+    const existing = collectedItems.find(i => i.cod === currentScannedItem.cod);
+    if (existing) {
+      existing.qtd += qty;
+    } else {
+      collectedItems.push({ ...currentScannedItem, qtd: qty });
+    }
+    renderCollectedList();
+    document.getElementById('collectCurrentItem').classList.add('hidden');
+    currentScannedItem = null;
+  };
+
+  function renderCollectedList() {
+    const list = document.getElementById('collectedList');
+    list.innerHTML = '';
+    collectedItems.forEach((item, idx) => {
+      const div = document.createElement('div');
+      div.className = "flex justify-between items-center p-3 bg-white border rounded-lg shadow-sm";
+      div.innerHTML = `
+        <div class="flex items-center gap-3">
+          <img src="${item.imagem}" class="w-10 h-10 object-cover rounded">
+          <span class="font-medium text-sm">${item.nome}</span>
+        </div>
+        <div class="flex items-center gap-4">
+          <span class="bg-blue-100 text-blue-700 px-3 py-1 rounded-full font-bold">${item.qtd}</span>
+          <button onclick="removeCollected(${idx})" class="text-red-500">✕</button>
+        </div>
+      `;
+      list.appendChild(div);
+    });
+  }
+
+  window.removeCollected = (idx) => {
+    collectedItems.splice(idx, 1);
+    renderCollectedList();
+  };
+
+  document.getElementById('btnFinishCollection').onclick = async () => {
+    if (collectedItems.length === 0) return;
+    const payload = {
+      coletor: currentUser.username,
+      data: new Date().toISOString(),
+      itens: collectedItems
+    };
+    await push(coletasFinRef, payload);
+    alert(getTranslation('alertCollectSuccess'));
+    loadColeta();
+  };
+
+  // =============== NOVO: CONFERÊNCIA ===============
+  function loadConferencia() {
+    onValue(coletasFinRef, snap => {
+      const data = snap.val() || {};
+      const container = document.getElementById('conferenciaCards');
+      container.innerHTML = '';
+
+      if (Object.keys(data).length === 0) {
+        container.innerHTML = `<p class="col-span-3 text-center text-gray-500">${getTranslation('verifyNoData')}</p>`;
+        return;
+      }
+
+      Object.entries(data).reverse().forEach(([id, c]) => {
+        const card = document.createElement('div');
+        card.className = "bg-white p-6 rounded-xl border border-blue-100 shadow-sm hover:shadow-md cursor-pointer transition flex flex-col items-center";
+        card.onclick = () => showVerifyDetail(c);
+        card.innerHTML = `
+          <div class="w-16 h-16 bg-blue-600 text-white rounded-full flex items-center justify-center text-2xl font-bold mb-4">
+            ${c.coletor.charAt(0).toUpperCase()}
+          </div>
+          <h3 class="font-bold text-lg text-gray-800">${c.coletor}</h3>
+          <p class="text-xs text-gray-500">${new Date(c.data).toLocaleString()}</p>
+          <p class="mt-2 text-sm text-blue-600 font-semibold">${c.itens.length} itens coletados</p>
+        `;
+        container.appendChild(card);
+      });
+    });
+  }
+
+  function showVerifyDetail(coleta) {
+    document.getElementById('verifyDetailCollector').textContent = coleta.coletor;
+    document.getElementById('verifyDetailDate').textContent = new Date(coleta.data).toLocaleString();
+    const list = document.getElementById('verifyDetailList');
+    list.innerHTML = '';
+    coleta.itens.forEach(item => {
+      const div = document.createElement('div');
+      div.className = "flex justify-between items-center p-2 border-b";
+      div.innerHTML = `
+        <div class="flex items-center gap-3">
+          <img src="${item.imagem}" class="w-8 h-8 rounded object-cover">
+          <span class="text-sm font-medium">${item.nome}</span>
+        </div>
+        <span class="font-bold text-blue-700">${item.qtd} un</span>
+      `;
+      list.appendChild(div);
+    });
+    document.getElementById('verifyDetailModal').classList.remove('hidden');
+  }
+
+  document.getElementById('closeVerifyModal').onclick = () => {
+    document.getElementById('verifyDetailModal').classList.add('hidden');
+  };
+
+  // =============== SAÍDA DE PRODUTO ===============
+  const saidaModal = document.getElementById('saidaModal');
+  const openSaidaBtn = document.getElementById('openSaidaModal');
+  const closeSaidaBtn = document.getElementById('closeSaidaModal');
+  const saidaForm = document.getElementById('saidaForm');
+  const saidaProdutoSelect = document.getElementById('saidaProdutoSelect');
+
+  openSaidaBtn.onclick = () => {
+    if (currentUser.role !== 'admin' && currentUser.role !== 'operador') {
+      return alert(getTranslation('alertAccessDenied'));
+    }
+    saidaForm.reset();
+    saidaProdutoSelect.innerHTML = `<option value="">${getTranslation('selectProductPlaceholder')}</option>`;
+    Object.entries(allProducts).forEach(([id, p]) => {
+      const option = document.createElement('option');
+      option.value = id;
+      option.textContent = `${p.nome} (Estoque: ${p.quantidade})`;
+      option.dataset.quantidade = p.quantidade;
+      option.dataset.nome = p.nome;
+      option.dataset.cod = p.cod;
+      saidaProdutoSelect.appendChild(option);
+    });
+    saidaModal.classList.remove('hidden');
+  };
+
+  closeSaidaBtn.onclick = () => { saidaModal.classList.add('hidden'); saidaForm.reset(); };
+
+  saidaForm.onsubmit = async (e) => {
+    e.preventDefault();
+    const produtoId = saidaProdutoSelect.value;
+    const quantidadeSaida = +document.getElementById('saidaQuantidade').value;
+    const setor = document.getElementById('saidaSetor').value.trim();
+    if (!produtoId || quantidadeSaida <= 0 || !setor) { return alert(getTranslation('alertFillAllFields')); }
+
+    const selectedOption = saidaProdutoSelect.options[saidaProdutoSelect.selectedIndex];
+    const quantidadeAtual = +selectedOption.dataset.quantidade;
+    const produtoNome = selectedOption.dataset.nome;
+    const produtoCod = selectedOption.dataset.cod;
+
+    if (quantidadeSaida > quantidadeAtual) { return alert(`${getTranslation('alertInsufficientStock')} Estoque atual: ${quantidadeAtual} un.`); }
+
+    const novaQuantidade = quantidadeAtual - quantidadeSaida;
+
+    try {
+      await update(ref(db, `produtos/${produtoId}`), { quantidade: novaQuantidade });
+      await push(movRef, { cod: produtoCod, nome: produtoNome, tipo: 'saida', quantidade: quantidadeSaida, setor, data: new Date().toISOString(), responsavel: currentUser.username });
+      alert(getTranslation('alertExitSuccess'));
+      saidaModal.classList.add('hidden'); saidaForm.reset();
+    } catch (error) {
+      alert('Ocorreu um erro ao registrar a saída.'); console.error("Erro ao registrar saída:", error);
+    }
+  };
+
+  // =============== DASHBOARD ===============
+  let chart;
+  async function loadDashboard() {
+    const snap = await get(movRef);
+    const data = snap.val() || {};
+    const meses = Array(12).fill(0).map(() => ({ entrada: 0, saida: 0 }));
+    Object.values(data).forEach(m => {
+      const mes = new Date(m.data).getMonth();
+      if (m.tipo === 'entrada') meses[mes].entrada += m.quantidade; else meses[mes].saida += m.quantidade;
+    });
+    const ctx = document.getElementById('chartMov').getContext('2d');
+    if (chart) chart.destroy();
+    chart = new Chart(ctx, { type: 'bar', data: { labels: getTranslation('monthNames'), datasets: [ { label: getTranslation('chartLabelEntries'), data: meses.map(m => m.entrada), backgroundColor: '#10b981' }, { label: getTranslation('chartLabelExits'), data: meses.map(m => m.saida), backgroundColor: '#ef4444' } ] }, options: { responsive: true, scales: { y: { beginAtZero: true } } } });
+    lowStockList.innerHTML = '';
+    Object.values(allProducts).filter(p => p.quantidade < 10).forEach(p => {
+      const div = document.createElement('div');
+      div.className = 'text-sm p-2 bg-red-50 border border-red-200 rounded';
+      div.innerHTML = `<strong>${p.nome}</strong> - ${p.quantidade} un`;
+      lowStockList.appendChild(div);
+    });
+  }
+
+  // =============== RELATÓRIOS PDF ===============
+  function addPdfHeader(doc, title) {
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text(title, doc.internal.pageSize.getWidth() / 2, 22, { align: 'center' });
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    const generationDate = `Gerado em: ${new Date().toLocaleString('pt-BR')}`;
+    const generatorUser = `Por: ${currentUser.username}`;
+    doc.text(generationDate, 14, 35);
+    doc.text(generatorUser, doc.internal.pageSize.getWidth() - 14, 35, { align: 'right' });
+    doc.setLineWidth(0.2);
+    doc.line(14, 40, doc.internal.pageSize.getWidth() - 14, 40);
+  }
+
+  document.getElementById('gerarMovPDF').onclick = async () => {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    addPdfHeader(doc, getTranslation('reportsMovBtn'));
+
+    let y = 55;
+    const headers = ["Data", "Produto", "Tipo", "Qtd", "Responsável", "Setor"];
+    doc.setFont('helvetica', 'bold');
+    doc.text(headers[0], 14, y);
+    doc.text(headers[1], 50, y);
+    doc.text(headers[2], 115, y);
+    doc.text(headers[3], 135, y);
+    doc.text(headers[4], 150, y);
+    doc.text(headers[5], 180, y);
+    y += 7;
+    doc.setFont('helvetica', 'normal');
+
+    const snap = await get(movRef);
+    const data = snap.val() || {};
+    const sortedMovements = Object.values(data).sort((a,b) => new Date(b.data) - new Date(a.data));
+
+    sortedMovements.forEach(m => {
+      if (y > 280) { doc.addPage(); y = 20; }
+      doc.text(new Date(m.data).toLocaleDateString(), 14, y);
+      doc.text(m.nome, 50, y, { maxWidth: 60 });
+      doc.text(m.tipo, 115, y);
+      doc.text(String(m.quantidade), 135, y);
+      doc.text(m.responsavel, 150, y);
+      doc.text(m.setor || '-', 180, y);
+      y += 10;
+    });
+    doc.save('relatorio_movimentacoes.pdf');
+  };
+
+  document.getElementById('gerarEstoquePDF').onclick = () => {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    addPdfHeader(doc, getTranslation('reportsStockBtn'));
+
+    let y = 55;
+    const headers = ["Produto", "COD", "Estoque"];
+    doc.setFont('helvetica', 'bold');
+    doc.text(headers[0], 14, y);
+    doc.text(headers[1], 120, y);
+    doc.text(headers[2], 200, y, { align: 'right' });
+    y += 7;
+    doc.setFont('helvetica', 'normal');
+
+    const sortedProducts = Object.values(allProducts).sort((a,b) => a.nome.localeCompare(b.nome));
+    sortedProducts.forEach(p => {
+      if (y > 280) { doc.addPage(); y = 20; }
+      doc.text(p.nome, 14, y, { maxWidth: 100 });
+      doc.text(p.cod, 120, y);
+      doc.text(String(p.quantidade), 200, y, { align: 'right' });
+      y += 10;
+    });
+    doc.save('relatorio_estoque.pdf');
+  };
+
+  // =============== QR CODES ===============
+  function loadQRCodes() {
+    qrCodeList.innerHTML = '';
+    Object.values(allProducts).forEach(p => {
+      const div = document.createElement('div');
+      div.className = 'qr-printable';
+      div.innerHTML = `<div id="qrcode-${p.cod}" class="inline-block"></div><p class="text-sm font-medium">${p.nome} (${p.cod})</p>`;
+      qrCodeList.appendChild(div);
+      new QRCode(document.getElementById(`qrcode-${p.cod}`), { text: p.cod, width: 100, height: 100 });
+    });
+  }
+  document.getElementById('generateQRCodes').onclick = () => window.print();
+
+  // =============== SCANNER ===============
+  const scannerModal = document.getElementById('scannerModal');
+  const openScan = document.getElementById('openScanner');
+  const closeScan = document.getElementById('closeScanner');
+  const scannerInput = document.getElementById('scannerInput');
+  const resultTxt = document.getElementById('scanResult');
+
+  let scanTimeout = null;
+
+  openScan.onclick = () => { 
+    scannerModal.classList.remove('hidden'); 
+    scannerInput.value = '';
+    scannerInput.focus();
+    resultTxt.textContent = getTranslation('scannerAwaiting');
+  };
+  closeScan.onclick = () => { scannerModal.classList.add('hidden'); scannerInput.value = ''; clearTimeout(scanTimeout); };
+
+  scannerInput.addEventListener('input', (e) => {
+    const code = e.target.value.replace(/\s+/g, '').trim();
+    clearTimeout(scanTimeout);
+    if (code.length > 0) {
+      resultTxt.textContent = `${getTranslation('scannerCodeDetected')}: ${code}. ${getTranslation('scannerLocating')}`;
+      navigator.vibrate && navigator.vibrate(200);
+      scanTimeout = setTimeout(() => locateProductByCode(code), 500);
+    }
+  });
+
+  scannerInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      clearTimeout(scanTimeout);
+      const code = scannerInput.value.replace(/\s+/g, '').trim();
+      if (code.length > 0) {
+        resultTxt.textContent = `${getTranslation('scannerCodeDetected')}: ${code}. ${getTranslation('scannerLocating')}`;
+        navigator.vibrate && navigator.vibrate(200);
+        locateProductByCode(code);
+      }
+    }
+  });
+
+  async function locateProductByCode(code) {
+    scannerModal.classList.add('hidden');
+    code = code.replace(/\s+/g, '').trim();
+    const foundEntry = Object.entries(allProducts).find(([id, p]) => p.cod.toLowerCase() === code.toLowerCase());
+    
+    if (foundEntry) {
+      const [id, product] = foundEntry;
+      editProduct(id);
+    } else {
+      alert(getTranslation('alertProductNotFound') + ` Código: ${code}`);
+    }
+  }
+
+  // =============== INICIALIZAÇÃO ===============
+  function loadAllData() {
+    onValue(produtosRef, snap => {
+        allProducts = snap.val() || {};
+        const searchTerm = document.getElementById('productSearchInput').value.toLowerCase().trim();
+        const filtered = Object.fromEntries(Object.entries(allProducts).filter(([id, p]) => p.nome.toLowerCase().includes(searchTerm)));
+        renderProdutos(productListFull, searchTerm ? filtered : allProducts);
+        if (!document.getElementById('dashboard').classList.contains('hidden')) {
+            loadDashboard();
+        }
+    });
+    document.querySelector('[data-page="dashboard"]').click();
+  }
+</script>
+</body>
+</html>

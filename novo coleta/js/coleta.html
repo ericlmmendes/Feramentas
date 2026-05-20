@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Coleta de Produtos</title>
+  <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+</head>
+<body>
+  <h1>Coleta de Produtos</h1>
+  
+  <div id="reader" style="width: 100%; max-width: 400px;"></div>
+  
+  <div id="productInfo"></div>
+  
+  <h2>Produtos Coletados</h2>
+  <div id="collectedList"></div>
+
+  <script>
+    let collected = [];
+
+    const html5QrCode = new Html5Qrcode("reader");
+    html5QrCode.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: { width: 250, height: 250 } },
+      (decodedText) => {
+        // Buscar produto pelo QR Code
+        const products = JSON.parse(localStorage.getItem('products')) || [];
+        const product = products.find(p => p.codigo === decodedText);
+        
+        if (product) {
+          document.getElementById('productInfo').innerHTML = `
+            <img src="images/${product.nome.toLowerCase()}.jpg" alt="${product.nome}" width="150">
+            <h3>${product.nome}</h3>
+            <button onclick="addToCollected(${product.id})">Confirmar Coleta</button>
+          `;
+        }
+      }
+    ).catch(err => console.error(err));
+
+    function addToCollected(id) {
+      // Adicionar à lista de coletados (com quantidade)
+      alert("Produto adicionado à coleta!");
+      // Atualizar lista collected
+    }
+  </script>
+</body>
+</html>

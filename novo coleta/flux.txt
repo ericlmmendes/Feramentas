@@ -1,0 +1,13 @@
+/sistema-coleta/
+├── index.html
+├── cadastropro.html
+├── coleta.html
+├── conferente.html
+├── assets/
+│   └── css/
+│       └── style.css
+├── js/
+│   ├── utils.js
+│   ├── products.js
+│   └── collections.js
+└── images/ (para fotos dos produtos)

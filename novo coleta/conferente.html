@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Conferência</title>
+</head>
+<body>
+  <h1>Conferência de Coletas</h1>
+  <div id="collectorsCards"></div>
+
+  <script>
+    // Simulação de coletas por coletor
+    const coletas = [
+      { coletor: "João Silva", produtos: ["Produto A", "Produto B"], data: "2026-05-20" },
+      { coletor: "Maria Santos", produtos: ["Produto C"], data: "2026-05-20" }
+    ];
+
+    function renderCards() {
+      const container = document.getElementById('collectorsCards');
+      coletas.forEach((coleta, index) => {
+        const card = document.createElement('div');
+        card.className = 'collector-card';
+        card.innerHTML = `<h3>${coleta.coletor}</h3>`;
+        card.onclick = () => showDetails(index);
+        container.appendChild(card);
+      });
+    }
+
+    function showDetails(index) {
+      alert(`Detalhes do coletor: ${coletas[index].coletor}\nProdutos: ${coletas[index].produtos.join(', ')}`);
+      // Aqui você pode abrir modal com lista completa
+    }
+
+    renderCards();
+  </script>
+</body>
+</html>
