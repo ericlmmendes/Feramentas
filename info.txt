@@ -1,0 +1,9 @@
+melhora o sistema mantendo o que já tem só acrescentar as atualizações solicitada.
+Atualização:
+Em portaria.html ao clicar na imagem relacionado ao motorista a mesma deve expandir
+Em motorista.html todas as tarefas relacionada ao nome do motorista deve aparecer o mesmo para gerenciamento.html
+Em visualizacao.html o sistema não esta marcando Horário FIM que seria quando o status estiver em Concluídos, e também não esta separado por login ou seja cada transportadora esta vinculada a um logim e o mesmo sodeve apresenta o a transportadora correspondente, se eu locar com o logim de uma transportadora não e para ver o fluxo da outra transportadora
+
+
+em :
+portaria.html, motorista.html, gerenciamento.html e visualizacao.html e para aparecer o nome vinculado aou logim não o login
