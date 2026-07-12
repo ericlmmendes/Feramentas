@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RDC - Barueri / RDC - 巴鲁埃里 | Controle Operacional - 运行控制</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        :root {
+            --primary: #0141d8;
+            --accent: #1e40af;
+            --success: #166534;
+            --warning: #f59e0b;
+        }
+        body { 
+            font-family: 'Segoe UI', system-ui, sans-serif; 
+            margin: 0; 
+            padding: 0; 
+            background: #f8fafc; 
+            color: #1e2937;
+        }
+        .header { 
+            background: linear-gradient(0deg, var(--primary), #0056cf); 
+            color: white; 
+            padding: 30px 20px; 
+            text-align: center; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        .header h1 { margin: 0; font-size: 2.4em; font-weight: 700; }
+        .header p { margin: 8px 0 0; opacity: 0.9; font-size: 1.1em; }
+
+        .tabs { 
+            display: flex; 
+            background: white; 
+            border-bottom: 1px solid #e2e8f0;
+            padding: 0 30px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            overflow-x: auto;
+            white-space: nowrap;
+        }
+        .tab { 
+            padding: 18px 35px; 
+            cursor: pointer; 
+            font-weight: 600; 
+            color: #64748b;
+            transition: all 0.3s ease;
+        }
+        .tab:hover { color: var(--accent); background: #f1f5f9; }
+        .tab.active { 
+            color: var(--accent); 
+            border-bottom: 4px solid var(--accent);
+        }
+
+        .content { 
+            padding: 35px; 
+            display: none; 
+            background: white; 
+            margin: 25px; 
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+            min-height: 75vh;
+        }
+        .content.active { display: block; }
+
+        .cards { 
+            display: flex; 
+            gap: 25px; 
+            flex-wrap: wrap; 
+            margin-bottom: 40px; 
+        }
+        .card { 
+            background: white; 
+            padding: 28px; 
+            border-radius: 12px; 
+            box-shadow: 0 6px 20px rgba(0,0,0,0.07); 
+            flex: 1; 
+            min-width: 250px; 
+            text-align: center;
+            border-top: 5px solid var(--accent);
+        }
+        .card h3 { margin: 0 0 10px 0; color: #64748b; font-size: 1.05em; }
+        .total { 
+            font-size: 2.6em; 
+            font-weight: 700; 
+            color: var(--success); 
+            margin: 10px 0;
+        }
+
+        .table-container {
+            overflow-x: auto;
+            margin: 25px 0;
+            border-radius: 8px;
+        }
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            min-width: 500px;
+        }
+        th, td { 
+            padding: 16px 14px; 
+            text-align: left; 
+            border-bottom: 1px solid #e2e8f0;
+        }
+        th { 
+            background: var(--accent); 
+            color: white; 
+            font-weight: 600;
+        }
+        tr:hover { background-color: #f8fafc; }
+
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: 600; color: #475569; }
+
+        input { 
+            padding: 12px; 
+            width: 100%; 
+            box-sizing: border-box;
+            max-width: 100%;
+            border: 1px solid #cbd5e1; 
+            border-radius: 8px; 
+            font-size: 1em;
+            transition: border 0.3s;
+        }
+        input:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.1); }
+
+        button { 
+            padding: 14px 28px; 
+            background: var(--success); 
+            color: white; 
+            border: none; 
+            border-radius: 8px; 
+            cursor: pointer; 
+            font-weight: 600; 
+            font-size: 1em;
+            margin-right: 10px;
+            margin-bottom: 10px;
+            transition: opacity 0.2s, transform 0.1s;
+        }
+        button:hover { opacity: 0.9; transform: translateY(-1px); }
+        button:active { transform: translateY(0); }
+        .danger-btn { background: #b91c1c; }
+        .secondary-btn { background: #64748b; }
+
+        .charts-container { 
+            display: flex; 
+            flex-wrap: wrap; 
+            gap: 30px; 
+            margin-top: 40px; 
+        }
+        .chart-card { 
+            background: white; 
+            padding: 25px; 
+            border-radius: 12px; 
+            box-shadow: 0 6px 20px rgba(0,0,0,0.07); 
+            flex: 1; 
+            min-width: 300px; 
+        }
+        
+        .history-log {
+            margin-top: 30px;
+            padding: 15px;
+            background: #f1f5f9;
+            border-radius: 8px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-size: 0.9em;
+        }
+
+        .form-grid {
+            max-width: 600px; 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 20px;
+        }
+
+        /* Responsive Adjustments */
+        @media (max-width: 768px) {
+            .header h1 { font-size: 1.8em; }
+            .header p { font-size: 1em; }
+            .content { margin: 15px; padding: 20px; }
+            .tabs { padding: 0 10px; }
+            .tab { padding: 15px 20px; font-size: 0.9em; }
+            .form-grid { grid-template-columns: 1fr; }
+            .total { font-size: 2em; }
+            .chart-card { min-width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>RDC • Barueri - RDC - 巴鲁埃里</h1>
+        <p>Controle Operacional • Logística Integrada - 运行控制 • 综合物流</p>
+    </div>
+
+    <div class="tabs">
+        <div class="tab active" onclick="showTab(0)">📊 Dashboard - 仪表板</div>
+        <div class="tab" onclick="showTab(1)">📋 Lançamentos - 最新发布</div>
+    </div>
+
+    <!-- Dashboard -->
+    <div id="tab0" class="content active">
+        <h2>Visão Geral Operacional - 运营概览</h2>
+        <div class="cards">
+            <div class="card">
+                <h3>Total Recebido - 总计收到</h3>
+                <p class="total" id="total-recebido">0</p>
+            </div>
+            <div class="card">
+                <h3>Consolidação - 合并</h3>
+                <p class="total" id="card-consolidacao">0</p>
+            </div>
+            <div class="card">
+                <h3>Total Expedido - 总计发货</h3>
+                <p class="total" id="total-expedido">0</p>
+            </div>
+        </div>
+
+        <h3>Detalhamento por Categoria - 按类别细分</h3>
+        <div class="table-container">
+            <table id="dashboard-table">
+                <thead>
+                    <tr>
+                        <th>Categoria - 类别</th>
+                        <th>Quantidade - 数量</th>
+                        <th>Porcentagem - 百分比</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <div class="actions" style="margin-top: 25px;">
+            <button onclick="generatePDF()">📄 Gerar Relatório PDF - 生成 PDF 报告</button>
+            <button onclick="exportToCSV()" class="secondary-btn">Excel / CSV</button>
+        </div>
+
+        <h3 style="margin-top: 40px;">Análise Gráfica - 图形分析</h3>
+        <div class="charts-container">
+            <div class="chart-card">
+                <h4>Distribuição dos Recebimentos - 收到的分布</h4>
+                <canvas id="pieChart"></canvas>
+            </div>
+            <div class="chart-card">
+                <h4>Recebido - 收到 × Consolidação - 合并  × Expedido - 发货</h4>
+                <canvas id="barChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lançamentos -->
+    <div id="tab1" class="content">
+        <h2>Lançamento Manual de Dados - 手动数据录入</h2>
+        <div class="form-grid">
+            <div class="form-group">
+                <label>SP2:</label>
+                <input type="number" id="sp2" value="0" min="0">
+            </div>
+            <div class="form-group">
+                <label>SP9:</label>
+                <input type="number" id="sp9" value="0" min="0">
+            </div>
+            <div class="form-group">
+                <label>SP0:</label>
+                <input type="number" id="sp0" value="0" min="0">
+            </div>
+            <div class="form-group">
+                <label>Outros - 其他的:</label>
+                <input type="number" id="outros" value="0" min="0">
+            </div>
+            <div class="form-group">
+                <label>Consolidação - 合并:</label>
+                <input type="number" id="in-consolidacao" value="0" min="0">
+            </div>
+            <div class="form-group">
+                <label>Total Expedido - 总发行量:</label>
+                <input type="number" id="expedido" value="0" min="0">
+            </div>
+        </div>
+        
+        <div style="margin-top: 20px;">
+            <button onclick="saveData()">💾 Salvar Lançamento 保存条目</button>
+            <button onclick="clearData()" class="danger-btn">🗑️ Limpar Todos os Dados 清除所有数据</button>
+        </div>
+
+        <div class="history-log" id="history-log">
+            <strong>Histórico de Atividade - 活动历史记录:</strong><br>
+            <span id="log-content">Nenhuma atividade registrada - 未记录到活动.</span>
+        </div>
+
+        <h3 style="margin-top: 40px;">Valores Atuais Registrados - 当前注册值</h3>
+        <div class="table-container">
+            <table id="info-table">
+                <thead>
+                    <tr>
+                        <th>Categoria - 类别</th>
+                        <th>Quantidade - 数量</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // Variáveis globais para os gráficos
+        let pieChart = null;
+        let barChart = null;
+
+        // Recupera dados do localStorage ou inicia padrão
+        let data = JSON.parse(localStorage.getItem('rdc_data')) || { 
+            sp2: 0, sp9: 0, sp0: 0, outros: 0, consolidacao: 0, expedido: 0 
+        };
+
+        function saveData() {
+            data.sp2 = parseInt(document.getElementById('sp2').value) || 0;
+            data.sp9 = parseInt(document.getElementById('sp9').value) || 0;
+            data.sp0 = parseInt(document.getElementById('sp0').value) || 0;
+            data.outros = parseInt(document.getElementById('outros').value) || 0;
+            data.consolidacao = parseInt(document.getElementById('in-consolidacao').value) || 0;
+            data.expedido = parseInt(document.getElementById('expedido').value) || 0;
+            
+            localStorage.setItem('rdc_data', JSON.stringify(data));
+            addLog("Dados atualizados com sucesso");
+            updateAll();
+            alert('✅ Dados salvos com sucesso!');
+        }
+
+        function clearData() {
+            if (confirm('Deseja realmente limpar todos os dados? Esta ação não pode ser desfeita.')) {
+                data = { sp2: 0, sp9: 0, sp0: 0, outros: 0, consolidacao: 0, expedido: 0 };
+                localStorage.removeItem('rdc_data');
+                
+                // Limpa campos de input
+                document.getElementById('sp2').value = 0;
+                document.getElementById('sp9').value = 0;
+                document.getElementById('sp0').value = 0;
+                document.getElementById('outros').value = 0;
+                document.getElementById('in-consolidacao').value = 0;
+                document.getElementById('expedido').value = 0;
+
+                addLog("Limpeza total de dados realizada");
+                updateAll();
+            }
+        }
+
+        function calculateTotalRecebido() {
+            return data.sp2 + data.sp9 + data.sp0 + data.outros;
+        }
+
+        function updateAll() {
+            const totalRecebido = calculateTotalRecebido();
+            
+            // Atualiza cards (Correção de ID: card-consolidacao)
+            document.getElementById('total-recebido').textContent = totalRecebido.toLocaleString();
+            document.getElementById('card-consolidacao').textContent = data.consolidacao.toLocaleString();
+            document.getElementById('total-expedido').textContent = data.expedido.toLocaleString();
+
+            // Sincroniza inputs caso venham do localStorage
+            document.getElementById('sp2').value = data.sp2;
+            document.getElementById('sp9').value = data.sp9;
+            document.getElementById('sp0').value = data.sp0;
+            document.getElementById('outros').value = data.outros;
+            document.getElementById('in-consolidacao').value = data.consolidacao;
+            document.getElementById('expedido').value = data.expedido;
+
+            // Tabela Dashboard
+            const tbody1 = document.querySelector('#dashboard-table tbody');
+            tbody1.innerHTML = `
+                <tr><td>SP2</td><td>${data.sp2}</td><td>${totalRecebido ? ((data.sp2 / totalRecebido) * 100).toFixed(1) : 0}%</td></tr>
+                <tr><td>SP9</td><td>${data.sp9}</td><td>${totalRecebido ? ((data.sp9 / totalRecebido) * 100).toFixed(1) : 0}%</td></tr>
+                <tr><td>SP0</td><td>${data.sp0}</td><td>${totalRecebido ? ((data.sp0 / totalRecebido) * 100).toFixed(1) : 0}%</td></tr>
+                <tr><td>Outros - 其他的</td><td>${data.outros}</td><td>${totalRecebido ? ((data.outros / totalRecebido) * 100).toFixed(1) : 0}%</td></tr>
+            `;
+
+            // Tabela Lançamentos
+            const tbody2 = document.querySelector('#info-table tbody');
+            tbody2.innerHTML = `
+                <tr><td>SP2</td><td>${data.sp2}</td></tr>
+                <tr><td>SP9</td><td>${data.sp9}</td></tr>
+                <tr><td>SP0</td><td>${data.sp0}</td></tr>
+                <tr><td>Outros - 其他的</td><td>${data.outros}</td></tr>
+                <tr><td><strong>Consolidação - 合并</strong></td><td><strong>${data.consolidacao}</strong></td></tr>
+                <tr><td><strong>Total Recebido - 收到</strong></td><td><strong>${totalRecebido}</strong></td></tr>
+                <tr><td><strong>Total Expedido - 发货</strong></td><td><strong>${data.expedido}</strong></td></tr>
+            `;
+
+            updateCharts(totalRecebido);
+        }
+
+        function updateCharts(totalRecebido) {
+            if (pieChart) pieChart.destroy();
+            if (barChart) barChart.destroy();
+
+            const ctxPie = document.getElementById('pieChart').getContext('2d');
+            const ctxBar = document.getElementById('barChart').getContext('2d');
+
+            pieChart = new Chart(ctxPie, {
+                type: 'pie',
+                data: {
+                    labels: ['SP2', 'SP9', 'SP0', 'Outros'],
+                    datasets: [{ 
+                        data: [data.sp2, data.sp9, data.sp0, data.outros], 
+                        backgroundColor: ['#1e40af', '#2563eb', '#3b82f6', '#60a5fa'],
+                        borderWidth: 2,
+                        borderColor: '#ffffff'
+                    }]
+                },
+                options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+            });
+
+            barChart = new Chart(ctxBar, {
+                type: 'bar',
+                data: {
+                    labels: ['Recebido', 'Consolidação', 'Expedido'],
+                    datasets: [{ 
+                        label: 'Volume Operacional', 
+                        data: [totalRecebido, data.consolidacao, data.expedido], 
+                        backgroundColor: ['#FF6600', '#1e40af', '#166534'],
+                        borderRadius: 6
+                    }]
+                },
+                options: { 
+                    responsive: true, 
+                    scales: { y: { beginAtZero: true, grid: { display: false } }, x: { grid: { display: false } } },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+        function generatePDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const totalRecebido = calculateTotalRecebido();
+            const date = new Date().toLocaleString('pt-BR');
+
+            doc.setFillColor(15, 23, 42);
+            doc.rect(0, 0, 210, 40, 'F');
+            
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(22);
+            doc.text("RDC Barueri - Relatório Operacional", 20, 25);
+            
+            doc.setTextColor(100, 100, 100);
+            doc.setFontSize(10);
+            doc.text(`Gerado em: ${date}`, 20, 48);
+
+            doc.setTextColor(0, 0, 0);
+            doc.setFontSize(14);
+            doc.text("1. Resumo Executivo", 20, 65);
+            doc.setFontSize(12);
+            doc.text(`Total de Cargas Recebidas: ${totalRecebido}`, 25, 75);
+            doc.text(`Volume em Consolidação: ${data.consolidacao}`, 25, 83);
+            doc.text(`Total de Cargas Expedidas: ${data.expedido}`, 25, 91);
+
+            doc.setFontSize(14);
+            doc.text("2. Detalhamento por Regional (Recebimento)", 20, 110);
+            let y = 120;
+            const categorias = [
+                {l: 'SP2 (Regional Principal)', v: data.sp2},
+                {l: 'SP9 (Regional Secundária)', v: data.sp9},
+                {l: 'SP0 (Regional Operacional)', v: data.sp0},
+                {l: 'Outras Origens', v: data.outros}
+            ];
+
+            categorias.forEach((item) => {
+                doc.text(`${item.l}: ${item.v}`, 25, y);
+                y += 10;
+            });
+
+            doc.setFontSize(10);
+            doc.text("Documento oficial para fins de auditoria interna.", 20, 280);
+
+            doc.save(`Relatorio_RDC_Barueri_${new Date().getTime()}.pdf`);
+            addLog("Relatório PDF exportado");
+        }
+
+        function exportToCSV() {
+            const totalRecebido = calculateTotalRecebido();
+            const rows = [
+                ["Categoria", "Quantidade"],
+                ["SP2", data.sp2],
+                ["SP9", data.sp9],
+                ["SP0", data.sp0],
+                ["Outros", data.outros],
+                ["Consolidacao", data.consolidacao],
+                ["Total Recebido", totalRecebido],
+                ["Total Expedido", data.expedido],
+                ["Data Exportacao", new Date().toLocaleString('pt-BR')]
+            ];
+
+            let csvContent = "data:text/csv;charset=utf-8," + rows.map(e => e.join(",")).join("\n");
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "rdc_barueri_dados.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            addLog("Dados exportados para CSV");
+        }
+
+        function addLog(message) {
+            const logContent = document.getElementById('log-content');
+            const time = new Date().toLocaleTimeString('pt-BR');
+            if (logContent.innerHTML === "Nenhuma atividade registrada.") logContent.innerHTML = "";
+            logContent.innerHTML = `[${time}] ${message}<br>` + logContent.innerHTML;
+        }
+
+        function showTab(n) {
+            document.querySelectorAll('.tab').forEach((tab, i) => tab.classList.toggle('active', i === n));
+            document.querySelectorAll('.content').forEach((content, i) => content.classList.toggle('active', i === n));
+            if (n === 0) setTimeout(() => updateCharts(calculateTotalRecebido()), 100);
+        }
+
+        // Inicializa o sistema ao carregar
+        window.onload = () => {
+            updateAll();
+            addLog("Sistema inicializado");
+        };
+    </script>
+</body>
+</html>
